@@ -119,16 +119,6 @@ python tools/build_js.py         # build/*.json -> data/*.js
 
 600 精讲词的例句以 `build/enrich_a_input.json` / `build/enrich_b_input.json` 为准；`build/ex_fix.json` 记录了 6 条人工替换的例句与译文。全词表英文释义分片在 `build/endef_*.json`，`tools/build_js.py` 会统一去掉个别批次带的词性前缀。
 
-## 部署到 Netlify
-
-这是一个纯静态站点，没有构建步骤：
-
-1. 打开 [app.netlify.com/drop](https://app.netlify.com/drop)，把整个 `词林` 文件夹拖进去即可；
-2. 或安装 Netlify CLI 后：`netlify deploy --prod --dir .`；
-3. `netlify.toml` 已把发布目录设为当前目录。建议部署时排除 `build/` 与 `tools/`：在拖拽前删除它们，或只上传 `index.html`、`assets/`、`data/`、`netlify.toml`。
-
-> 注意：`data/*.js` 是内嵌数据（不用 fetch），所以部署后与本地 `file://` 行为一致；学习进度保存在浏览器 localStorage，不跟设备同步。
-
 ## QA
 
 `build/qa-report.json` 记录最近一次端到端验收：**44/44 通过，无控制台错误**。覆盖：数据完整性（5546 词 / **5546 个例句全部有中文译文与朗读** / 5347 词同义词 / 11 篇真题外刊）、课文段落编号还原（无编号残留）、六级词表与词汇范围、阅读点词与「加入今日」闭环、**未知词 → 自定义词卡 → 词林 + 今日 + localStorage**、生词高亮持久、词卡同义词、六类四级题型、三选一/15 词匹配/U1–U4 翻译/paraphrase/课本原题、影子、旅程、明暗切换、刷新持久化、移动端阅读。
@@ -139,16 +129,6 @@ python tools/build_js.py         # build/*.json -> data/*.js
 # 以调试端口启动无头 Edge 打开 index.html，然后
 node tools/qa_cdp.cjs .
 ```
-
-## 后续路线
-
-- 六级真题题库（当前训练仍以四级题型为主，词库已扩到六级）；
-- 听力真题音频切片（四六级文件夹中已有 MP3），替代 TTS 微练；
-- 四级真题扫描件 OCR 后扩充阅读/选词/匹配题库；
-- 写作批改（规则评分 + 参考结构对照）、翻译逐句对照；
-- 全词表按词频/考频排序与更细的分级计划；
-- 学习计划与提醒、账号同步（可选）。
-
 ---
 
 *词林 v1.5 · 2026 秋 · 四级 + 六级 · 从阅读走到今日，再走回阅读。*
