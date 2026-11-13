@@ -2,6 +2,16 @@
 <html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="utf-8">
+<script>
+/* 手机访问自动进入轻量手机版；?desktop=1 可强制留在桌面版。
+   这段必须排在全部外部资源之前，让手机不必下载 4MB 词库。 */
+(function(){try{
+  if(location.search.indexOf("desktop=1")>=0)return;
+  var u=navigator.userAgent||"";
+  if(!/Android|iPhone|iPad|iPod|Mobile|Windows Phone|HarmonyOS/i.test(u))return;
+  location.replace("m.html"+(location.hash||""));
+}catch(e){}})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d1210">
 <title>词林 · 一条向内走的路</title>
