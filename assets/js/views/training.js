@@ -331,6 +331,7 @@
   /* ---------- 写作 ---------- */
   function startWriting(set) {
     if (!set) return;
+    const hasModel = !!set.model;
     const body = `<div class="q-wrap">
       <div class="passage-meta"><span class="eyebrow">WRITING</span><span class="small faint">${ui.esc(set.source || "")}</span></div>
       <div class="q-stem" style="font-size:18px">${ui.esc(set.topic || set.title || "")}</div>
@@ -339,15 +340,19 @@
       <div class="field"><label>正文 <span id="wc" class="faint"></span></label>
         <textarea id="writeInput" rows="10" placeholder="Write your essay here…"></textarea></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn btn-line" data-reveal>看范文与提纲</button>
+        <button class="btn btn-line" data-reveal>${hasModel ? "看范文与提纲" : "看提纲与表达"}</button>
         <button class="btn btn-primary" data-done>完成这一篇</button>
       </div>
       <div id="refBox" class="mt16" style="display:none">
         <div class="divider"></div>
         ${set.outline && set.outline.length ? `<div class="ws-label" style="font-size:10px;letter-spacing:.24em;color:var(--gold-dim)">OUTLINE</div>
           <ol class="small muted" style="margin:8px 0 0;padding-left:20px">${set.outline.map(function (o) { return `<li>${ui.esc(o)}</li>`; }).join("")}</ol>` : ""}
-        <div class="ws-label mt16" style="font-size:10px;letter-spacing:.24em;color:var(--gold-dim)">MODEL</div>
-        <div class="reference mt8" style="font-family:var(--latin)">${ui.esc(set.model || "")}</div>
+        ${hasModel
+          ? `<div class="ws-label mt16" style="font-size:10px;letter-spacing:.24em;color:var(--gold-dim)">MODEL</div>
+             ${set.modelSource ? `<div class="small muted mt8">官方范文 · ${ui.esc(set.modelSource)}</div>` : ""}
+             <div class="reference mt8" style="font-family:var(--latin)">${ui.esc(set.model)}</div>`
+          : `<div class="ws-label mt16" style="font-size:10px;letter-spacing:.24em;color:var(--gold-dim)">MODEL · 官方范文</div>
+             <p class="small muted mt8">本题为 CET-4 真题。按发布约定，公开版只提供原题题干、结构提纲与可用表达；官方解析册的参考范文全文收录在个人副本《词林 叶杏沂》的写作模块中。</p>`}
         ${set.phrases && set.phrases.length ? `<div class="ws-label mt16" style="font-size:10px;letter-spacing:.24em;color:var(--gold-dim)">USEFUL PHRASES</div>
           <div class="kv-list mt8">${set.phrases.map(function (p) {
             const en = typeof p === "string" ? p : p.en;
@@ -729,7 +734,7 @@
         ${card("reading", "book", "仔细阅读", "READING", "从课文摘一段，五道题，练定位与推断。", counts.reading ? counts.reading + " 篇" : "", "", !counts.reading)}
         ${card("matching", "ring", "长篇匹配", "MATCHING", "十句改写，回到段落里找它的出处。", counts.matching ? counts.matching + " 套" : "", "", !counts.matching)}
         ${card("translation", "river", "汉译英", "TRANSLATION", "真题题干，先写，再对照参考译文。", counts.translation ? counts.translation + " 题" : "", "", !counts.translation)}
-        ${card("writing", "pen", "写作", "WRITING", "四级题干，120–180 词，写完看范文与结构。", counts.writing ? counts.writing + " 题" : "", "", !counts.writing)}
+        ${card("writing", "pen", "写作", "WRITING", "四级真题与原创题，120–180 词，写完看提纲与表达。", counts.writing ? counts.writing + " 题" : "", "", !counts.writing)}
         ${card("listening", "ear", "听力微练", "LISTENING", "用系统语音合成，听对话/短文，再答题。", counts.listening ? counts.listening + " 组" : "", "", !counts.listening)}
         ${card("cloze3", "pen", "三选一填空", "3-CHOICE CLOZE", "一句一空，三个词里选一个；按课文/课件语境出题。", counts.cloze3 ? counts.cloze3 + " 题" : "", "", !counts.cloze3)}
         ${card("match15", "ring", "15 词匹配", "15 WORDS · 15 SENTENCES", "15 个词对应 15 个挖空句，一一匹配。", counts.match15 ? counts.match15 + " 套" : "", "", !counts.match15)}
