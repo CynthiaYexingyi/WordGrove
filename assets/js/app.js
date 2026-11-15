@@ -78,7 +78,8 @@
     if (w.endsWith("e")) { out.add(w + "d"); out.add(w.slice(0, -1) + "ing"); }
     else {
       out.add(w + "ed"); out.add(w + "ing");
-      if (/[^aeiou]$/.test(w) && !/[wxy]$/.test(w) && w.length > 3) {
+      if (/[^aeiou]y$/.test(w) && w.length > 2) out.add(w.slice(0, -1) + "ied");
+      if (/[^aeiou]$/.test(w) && !/[wxy]$/.test(w) && w.length > 2) {
         out.add(w + w.slice(-1) + "ed"); out.add(w + w.slice(-1) + "ing");
       }
     }

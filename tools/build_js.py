@@ -86,7 +86,7 @@ def merge_sent_zh():
     by_id = {r["id"]: r["en"] for r in inp}
     out = {}
     for p in sorted(glob.glob(os.path.join(BUILD, "sent_zh_*.json"))):
-        if "_input" in os.path.basename(p) or "extra" in os.path.basename(p):
+        if "_input" in os.path.basename(p) or "extra" in os.path.basename(p) or "themed" in os.path.basename(p):
             continue
         for rec in load_json(p, []):
             en = by_id.get(rec.get("id"))
@@ -188,6 +188,8 @@ def main():
     extras = load_json(os.path.join(BUILD, "sent_zh_extra.json"), {})
     for k, v in extras.items():
         sent_zh[k] = v
+    for k, v in load_json(os.path.join(BUILD, "sent_zh_themed.json"), {}).items():
+        sent_zh[k] = v
     norm_index = {}
     for k, v in sent_zh.items():
         norm_index.setdefault(_sent_norm(k), v)
@@ -272,6 +274,32 @@ def main():
         if ext["texts"]:
             units.append(ext)
             print(f"extra articles {len(ext['texts'])}")
+
+    # 主题精读（CET 阅读风格）：句子逐字复用词库 ex.en，译文由 sentzh 自动带入
+    themed_articles = load_json(os.path.join(BUILD, "articles_themed.json"), [])
+    if themed_articles:
+        import re
+        th = {"id": "x2", "title": "主题精读", "cn": "主题", "extra": True, "texts": []}
+        for i, a in enumerate(themed_articles):
+            paras = [re.sub(r"\s+([.,;:!?])", r"\1", p.strip()) for p in (a.get("paragraphs") or []) if p and p.strip()]
+            if not paras:
+                continue
+            if not a.get("sentences"):
+                joined = " ".join(paras)
+                a["sentences"] = [x.strip() for x in re.split(r"(?<=[.!?])\s+(?=[A-Z\"‘’'\u201c])", joined) if len(x.strip()) > 12]
+            th["texts"].append({
+                "id": a.get("id") or ("x2t" + str(i + 1)),
+                "label": "主题" if a.get("kind") == "theme" else "精读",
+                "title": a.get("title") or "Passage " + str(i + 1),
+                "subtitle": a.get("subtitle") or "",
+                "unit": "x2", "unitTitle": "Themed Reading", "unitCn": "主题",
+                "pages": [], "words": len(" ".join(paras).split()),
+                "paragraphs": paras, "sentences": a.get("sentences") or [],
+                "source": a.get("source") or ""
+            })
+        if th["texts"]:
+            units.append(th)
+            print(f"themed articles {len(th['texts'])}")
 
     def dump(name, varname, obj):
         raw = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
