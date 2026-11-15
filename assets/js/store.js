@@ -24,6 +24,52 @@
     };
   }
 
+  /* ---------- 记忆强度 / 遗忘预测（纯前端推算，不写存档、不升 state.v） ---------- */
+  // box 越大抗遗忘越久；距上次见面按指数衰减；答对率做修正。老存档缺字段时按默认值兜底。
+  function memoryOf(state, w, today) {
+    const s = state.words[w.w || w];
+    if (!s || !s.seen) return null;
+    const box = Math.min(5, Math.max(0, s.box || 1));
+    const right = s.right || 0, wrong = s.wrong || 0;
+    const acc = right + wrong ? right / (right + wrong) : 0.5;
+    const gap = s.last ? Math.max(0, CILIN.ui.dayDiff(today, s.last)) : 30;
+    const stability = Math.max(1, INTERVALS[box] || 1);
+    const keep = Math.exp(-gap / (stability * 1.7)) * (0.55 + 0.45 * acc);
+    return { keep: Math.round(keep * 100), gap: gap, box: box, wrong: wrong };
+  }
+
+  function nearOne(a, b) {
+    if (Math.abs(a.length - b.length) > 1 || a.length < 5) return false;
+    if (a.length === b.length) {
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && ++diff > 1) return false;
+      return diff === 1;
+    }
+    const long = a.length > b.length ? a : b, short = a.length > b.length ? b : a;
+    let i = 0, j = 0, skip = 0;
+    while (i < long.length && j < short.length) {
+      if (long[i] === short[j]) { i++; j++; }
+      else { if (++skip > 1) return false; i++; }
+    }
+    return true;
+  }
+
+  // 一个错词可以同时属于多类：词性 / 词尾 / 形近 / 课文单元
+  function clusterTags(w, near) {
+    const tags = [];
+    const raw = (w.senses && w.senses[0] && w.senses[0].pos) || w.pos || (w.mean || "").split(" ")[0] || "";
+    const p = String(raw).toLowerCase();
+    if (/^n/.test(p)) tags.push("名词");
+    else if (/^v/.test(p)) tags.push("动词");
+    else if (/^(adj|a\.)/.test(p)) tags.push("形容词");
+    else if (/^(adv|ad\.)/.test(p)) tags.push("副词");
+    const suf = String(w.w || "").match(/(tion|sion|ment|ness|ity|able|ible|ful|less|ous|ive|ize|ise|ance|ence|ary|ory|al|ic|ly)$/);
+    if (suf) tags.push("-" + suf[1] + " 结尾");
+    if (near) tags.push("形近易混");
+    if (w.ex && w.ex.unit) tags.push("Unit " + String(w.ex.unit).replace(/^u/, "") + " 课文");
+    return tags;
+  }
+
   const store = {
     state: defaults(),
     _saveTimer: null,
@@ -225,7 +271,6 @@
     },
 
     dueWords: function () {
-
       const today = this.today();
       const list = [];
       const self = this;
@@ -233,31 +278,93 @@
         const s = self.state.words[w];
         if (s.seen && s.due && s.due <= today) list.push({ w: w, s: s });
       });
+      // 遗忘预测：到期词不再只按到期日排，先按「最可能忘」排
       list.sort(function (a, b) {
+        const am = memoryOf(self.state, a.w, today) || { keep: 100, wrong: 0 };
+        const bm = memoryOf(self.state, b.w, today) || { keep: 100, wrong: 0 };
+        if (am.keep !== bm.keep) return am.keep - bm.keep;
         if (a.s.due !== b.s.due) return a.s.due < b.s.due ? -1 : 1;
-        return (a.s.box || 0) - (b.s.box || 0);
+        return (bm.wrong || 0) - (am.wrong || 0);
       });
       return list.map(function (x) { return CILIN.wordMap ? CILIN.wordMap[x.w] : null; }).filter(Boolean);
     },
 
     dueCount: function () { return this.dueWords().length; },
 
+    memory: function (w) { return memoryOf(this.state, w, this.today()); },
+
+    // 记忆强度最低的几个已学词，供首页「记忆强度」卡展示
+    weakest: function (n) {
+      const self = this, today = this.today(), out = [];
+      Object.keys(this.state.words).forEach(function (k) {
+        const w = CILIN.wordMap && CILIN.wordMap[k];
+        const m = memoryOf(self.state, k, today);
+        if (w && m) out.push({ word: w, keep: m.keep, gap: m.gap });
+      });
+      out.sort(function (a, b) { return a.keep - b.keep; });
+      return out.slice(0, n || 3);
+    },
+
+    // 错词聚类：只统计本机影子，样本 < 3 时不硬凑；不写存档
+    shadowClusters: function () {
+      const list = this.shadowList();
+      if (list.length < 3) return [];
+      const words = list.slice(0, 120).map(function (x) { return x.word; });
+      const near = {};
+      for (let i = 0; i < words.length; i++) {
+        for (let j = i + 1; j < words.length; j++) {
+          if (nearOne(String(words[i].w).toLowerCase(), String(words[j].w).toLowerCase())) {
+            near[words[i].w] = near[words[j].w] = 1;
+          }
+        }
+      }
+      const groups = {};
+      words.forEach(function (w) {
+        clusterTags(w, !!near[w.w]).forEach(function (tag) {
+          if (!groups[tag]) groups[tag] = { label: tag, words: [] };
+          groups[tag].words.push(w.w);
+        });
+      });
+      return Object.keys(groups).map(function (k) { return groups[k]; })
+        .filter(function (g) { return g.words.length >= 2; })
+        .sort(function (a, b) { return b.words.length - a.words.length; })
+        .slice(0, 4);
+    },
+
     plan: function () {
+      const self = this, today = this.today();
       const goal = this.state.settings.dailyGoal || 10;
       const studiedArr = this.studiedToday();
       const remaining = Math.max(0, goal - studiedArr.length);
       const due = this.dueWords();
+      const duePick = due.slice(0, 20);
       const queued = this.queueWords().filter(function (w) { return !CILIN.store.state.words[w.w] || CILIN.store.state.words[w.w].last !== CILIN.store.today(); });
       const seenSet = this.state.words;
       const extra = queued.filter(function (w) { return due.every(function (d) { return d.w !== w.w; }); });
+      // 遗忘预测：还没到期但保持率已偏低的词，提前安排见一面（最多 3 个）
+      const reserved = {};
+      extra.forEach(function (w) { reserved[w.w] = 1; });
+      duePick.forEach(function (w) { reserved[w.w] = 1; });
+      const risk = [];
+      Object.keys(seenSet).forEach(function (k) {
+        if (reserved[k] || !CILIN.wordMap[k]) return;
+        const s = seenSet[k], m = memoryOf(self.state, k, today);
+        if (!s || !s.seen || !s.due || s.due <= today) return;
+        if (m && m.keep < 50 && m.gap >= 1) risk.push({ word: CILIN.wordMap[k], keep: m.keep, gap: m.gap });
+      });
+      risk.sort(function (a, b) { return a.keep - b.keep; });
+      const riskInfo = risk.slice(0, 3);
+      const riskWords = riskInfo.map(function (x) { return x.word; });
       const basePool = (CILIN.studyPool ? CILIN.studyPool() : (CILIN.words || [])).filter(function (w) { return !seenSet[w.w]; });
       const pool = CILIN.ui.shuffle(basePool, CILIN.ui.hash("plan" + this.today()));
-      const needFresh = Math.max(0, remaining - due.length - extra.length);
+      const needFresh = Math.max(0, remaining - due.length - extra.length - riskWords.length);
       const fresh = pool.slice(0, needFresh);
-      const queue = extra.concat(due.slice(0, 20)).concat(fresh);
+      const queue = extra.concat(duePick).concat(riskWords).concat(fresh);
       return {
         extra: extra,
-        due: due.slice(0, 20),
+        due: duePick,
+        risk: riskInfo,
+        riskTotal: risk.length,
         fresh: fresh,
         queue: queue,
         goal: goal,

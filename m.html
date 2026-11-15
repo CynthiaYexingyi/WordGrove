@@ -164,6 +164,13 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
 <main class="m-main" id="mMain">
 
   <section class="m-view" id="v-today" data-view="today">
+    <div class="m-block" id="mBackupBanner" hidden style="border-color:var(--danger);background:var(--accent-soft);padding:12px 14px">
+      <div id="mBackupMsg" style="font-size:13px;line-height:1.65;color:var(--ink2)"></div>
+      <div class="m-quick" style="margin-top:10px">
+        <button class="m-btn m-btn-sm" id="mBackupNow" type="button">现在导出</button>
+        <button class="m-btn m-btn-sm" id="mBackupLater" type="button">稍后</button>
+      </div>
+    </div>
     <div class="m-hello" id="mHello">今天也走一小步</div>
     <div class="m-progress"><i id="mBar"></i></div>
     <div class="m-count" id="mCount">正在准备今日的词…</div>
@@ -281,6 +288,7 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
       <div class="m-link" id="mImport">导入进度 <em>从 JSON 恢复</em></div>
       <div class="m-link" id="mReset">重置进度 <em>先导出备份</em></div>
       <div class="m-link" id="mDesktop">使用桌面版 <em>完整功能</em></div>
+      <p class="m-foot" id="mBackupState" style="text-align:left;margin:12px 0 0;font-size:12px"></p>
     </div>
     <div class="m-foot">词林 · 手机版<br>数据全部保存在本机浏览器，不上传任何服务器</div>
   </section>

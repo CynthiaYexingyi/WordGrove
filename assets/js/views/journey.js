@@ -4,6 +4,42 @@
   const ui = CILIN.ui;
   const store = function () { return CILIN.store; };
 
+  /* 备份提醒：只用独立 localStorage key，不写进存档、不升 state.v */
+  const BK_KEY = "cilin.backup.last";
+  const BK_DAYS = 14;
+  function backupAge() {
+    let t = 0;
+    try { t = Number(localStorage.getItem(BK_KEY)) || 0; } catch (e) { }
+    if (!t) return -1;
+    return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  }
+  function markBackup() {
+    try { localStorage.setItem(BK_KEY, String(Date.now())); } catch (e) { }
+  }
+  function backupNote(age) {
+    const due = age < 0 || age >= BK_DAYS;
+    const head = age < 0 ? "还没备份过" : age === 0 ? "上次备份：今天" : "上次备份：" + age + " 天前";
+    const tail = due ? " · 进度只在这台设备的浏览器里，清缓存就会消失，建议现在导出一份。" : " · 数据只在本机，换设备可用导出 / 导入迁移。";
+    return { due: due, html: '<span style="' + (due ? "color:var(--red);font-weight:600" : "") + '">' + (due ? "⚠ " : "") + head + "</span>" + tail };
+  }
+
+  function exportBackup() {
+    const st = store();
+    const blob = new Blob([st.exportData()], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "词林-进度-" + st.today() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    markBackup();
+    const note = document.getElementById("backupNote");
+    if (note) note.innerHTML = backupNote(backupAge()).html;
+    const banner = document.getElementById("backupBanner");
+    if (banner) banner.hidden = true;
+    ui.toast("进度已导出");
+  }
+
   function mastery() {
     return CILIN.units.filter(function (u) { return !u.extra; }).map(function (u) {
       const words = CILIN.unitWords[u.id] || [];
@@ -26,6 +62,7 @@
     const next = lv.next;
     const settings = st.state.settings;
     const voices = CILIN.speech.voices();
+    const bk = backupNote(backupAge());
 
     root.innerHTML = `<div class="page">
       <div class="page-head">
@@ -123,7 +160,7 @@
             <button class="btn btn-ghost btn-sm" data-reset>重置</button>
             <input type="file" id="importFile" accept="application/json,.json" hidden>
           </div>
-          <p class="small faint mt12">数据只保存在这台设备的浏览器里。换设备时可用导出 / 导入迁移。</p>
+          <p class="small faint mt12" id="backupNote">${bk.html}</p>
         </section>
       </div>
 
@@ -168,16 +205,7 @@
       st.toggleTheme();
       CILIN.reRender();
     };
-    root.querySelector("[data-export]").onclick = function () {
-      const blob = new Blob([st.exportData()], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "词林-进度-" + st.today() + ".json";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-      ui.toast("进度已导出");
-    };
+    root.querySelector("[data-export]").onclick = exportBackup;
     const file = root.querySelector("#importFile");
     root.querySelector("[data-import]").onclick = function () { file.click(); };
     file.onchange = function () {
@@ -206,5 +234,5 @@
   }
 
   CILIN.views = CILIN.views || {};
-  CILIN.views.journey = { render: render };
+  CILIN.views.journey = { render: render, exportBackup: exportBackup, backupAge: backupAge };
 })();

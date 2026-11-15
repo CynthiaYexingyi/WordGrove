@@ -781,3 +781,19 @@ p { margin: 0; }
 .blank-line { display: inline-block; min-width: 54px; border-bottom: 1px dashed var(--gold-dim); margin: 0 3px; }
 .match-select { width: 100%; max-width: 340px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2, rgba(255,255,255,.03)); color: var(--ink); font-family: var(--latin); font-size: 14px; }
 .match-select:focus { outline: none; border-color: var(--gold-dim); }
+
+
+/* 错词画像 / 记忆强度（纯前端推算，无新存档字段） */
+.cluster-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+.cluster-item { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; background: rgba(127,156,134,.05); }
+.cluster-item .ci-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cluster-item .ci-top b { font-size: 14px; font-weight: 500; color: var(--ink); }
+.cluster-item .ci-top span { font-size: 12px; color: var(--gold); }
+.ci-words { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ci-words span { font-family: var(--latin); font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+.mem-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.mem-row { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; }
+.mem-row b { font-family: var(--latin); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem-bar { height: 6px; border-radius: 6px; background: var(--line-soft); overflow: hidden; }
+.mem-bar i { display: block; height: 100%; background: var(--moss); }
+@media (max-width: 620px) { .mem-row { grid-template-columns: 90px 1fr; } .mem-row > span { grid-column: 1 / -1; } }

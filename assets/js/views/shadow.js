@@ -146,6 +146,7 @@
 
   function render(root) {
     const list = store().shadowList();
+    const clusters = store().shadowClusters();
     const sentences = [];
     list.forEach(function (it) { if (it.word.ex) sentences.push(it); });
     root.innerHTML = `<div class="page">
@@ -171,6 +172,23 @@
           <div class="si-mark">${ui.icon("shadow", 34)}</div>
         </div>
       </section>
+
+      ${clusters.length ? `<section class="card card-pad mt16" id="clusterCard">
+        <div class="sec-title" style="margin-top:0">
+          <div><span class="eyebrow">PATTERN</span><h2>错词画像</h2></div>
+          <span class="pill">只看本机记录</span>
+        </div>
+        <p class="small muted">按词性、词尾、形近与课文单元把影子归堆。数据只来自这台设备的答题记录，不联网、不写进存档。</p>
+        <div class="cluster-grid">
+          ${clusters.map(function (g) {
+            return `<div class="cluster-item">
+              <div class="ci-top"><b>${ui.esc(g.label)}</b><span>${g.words.length} 个</span></div>
+              <div class="ci-words">${g.words.slice(0, 8).map(function (w) { return `<span>${ui.esc(w)}</span>`; }).join("")}${g.words.length > 8 ? `<span>+${g.words.length - 8}</span>` : ""}</div>
+            </div>`;
+          }).join("")}
+        </div>
+        <div class="small faint mt12">最常一起错的是「${ui.esc(clusters[0].label)}」，共 ${clusters[0].words.length} 个。先照见这一类，往往比逐个硬背更快。</div>
+      </section>` : ""}
 
       <div class="sec-title"><div><span class="eyebrow">UNSEEN</span><h2>未照见的影子</h2></div>
         <span class="small faint">${list.length ? "点一个，把它认回来" : "干净得像一面镜子"}</span></div>

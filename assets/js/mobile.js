@@ -6,6 +6,9 @@
   "use strict";
 
   var KEY = "cilin.v1";
+  var BK_KEY = "cilin.backup.last";   /* 备份时间独立存，不写进存档、不升 state.v */
+  var BK_DAYS = 14;
+  var backupDismissed = false;
   var WORDS = window.CILIN_M_WORDS || [];
   var LEVELS = [
     [0, 1, "提灯者"], [40, 2, "采集者"], [110, 3, "林中旅人"], [210, 4, "面具之后"],
@@ -329,6 +332,62 @@
   }
 
   /* ---------------- 今日队列 ---------------- */
+  /* 记忆强度 / 遗忘预测：纯推算，不写存档、不升 state.v */
+  function memoryOf(w) {
+    var s = state.words[w.w || w];
+    if (!s || !s.seen) return null;
+    var box = Math.min(5, Math.max(1, s.box || 1));
+    var right = s.right || 0, wrong = s.wrong || 0;
+    var acc = right + wrong ? right / (right + wrong) : 0.5;
+    var gap = s.last ? Math.max(0, Math.round((parseKey(today()) - parseKey(s.last)) / 86400000)) : 30;
+    var keep = Math.exp(-gap / (Math.max(1, INTERVALS[box]) * 1.7)) * (0.55 + 0.45 * acc);
+    return { keep: Math.round(keep * 100), gap: gap, wrong: wrong };
+  }
+  function nearOne(a, b) {
+    if (Math.abs(a.length - b.length) > 1 || a.length < 5) return false;
+    var i, j, diff = 0, long, short, skip = 0;
+    if (a.length === b.length) {
+      for (i = 0; i < a.length; i++) if (a[i] !== b[i] && ++diff > 1) return false;
+      return diff === 1;
+    }
+    long = a.length > b.length ? a : b; short = a.length > b.length ? b : a;
+    i = 0; j = 0;
+    while (i < long.length && j < short.length) {
+      if (long[i] === short[j]) { i++; j++; }
+      else { if (++skip > 1) return false; i++; }
+    }
+    return true;
+  }
+  function posTag(z) {
+    var p = String(z || "").toLowerCase();
+    if (/^n/.test(p)) return "名词";
+    if (/^v/.test(p)) return "动词";
+    if (/^(adj|a\.)/.test(p)) return "形容词";
+    if (/^(adv|ad\.)/.test(p)) return "副词";
+    return "";
+  }
+  function shadowClusters() {
+    var keys = Object.keys(state.shadow);
+    if (keys.length < 3) return [];
+    var words = keys.slice(0, 120), near = {}, groups = {}, out = [], i, j, k, w, suf, tag;
+    for (i = 0; i < words.length; i++) {
+      for (j = i + 1; j < words.length; j++) {
+        if (nearOne(words[i].toLowerCase(), words[j].toLowerCase())) { near[words[i]] = 1; near[words[j]] = 1; }
+      }
+    }
+    function add(t, word) { if (!groups[t]) groups[t] = { label: t, words: [] }; groups[t].words.push(word); }
+    for (i = 0; i < words.length; i++) {
+      k = words[i]; w = IDX[k] || { w: k, z: "" };
+      tag = posTag(w.z); if (tag) add(tag, k);
+      suf = String(k).match(/(tion|sion|ment|ness|ity|able|ible|ful|less|ous|ive|ize|ise|ance|ence|ary|ory|al|ic|ly)$/);
+      if (suf) add("-" + suf[1] + " 结尾", k);
+      if (near[k]) add("形近易混", k);
+    }
+    for (tag in groups) if (groups.hasOwnProperty(tag) && groups[tag].words.length >= 2) out.push(groups[tag]);
+    out.sort(function (a, b) { return b.words.length - a.words.length; });
+    return out.slice(0, 3);
+  }
+
   function scopeOK(w) {
     var s = state.settings.vocabScope;
     if (!w || w.custom) return true;
@@ -337,14 +396,30 @@
     return true;
   }
   function pickToday(n) {
-    var t = today(), out = [], used = {}, i, w, s, k;
-    for (k in state.shadow) if (state.shadow.hasOwnProperty(k) && IDX[k]) {
-      if (!used[k]) { out.push(k); used[k] = 1; }
-      if (out.length >= n) return out;
+    var t = today(), out = [], used = {}, i, w, s, k, due = [], risk = [], m;
+    function byRisk(a, b) {
+      var ma = memoryOf(a) || { keep: 100 }, mb = memoryOf(b) || { keep: 100 };
+      return ma.keep - mb.keep;
     }
-    for (i = 0; i < WORDS.length && out.length < n; i++) {
-      w = WORDS[i]; s = state.words[w.w];
-      if (s && s.seen && s.due && s.due <= t && !used[w.w]) { out.push(w.w); used[w.w] = 1; }
+    var shadowKeys = [];
+    for (k in state.shadow) if (state.shadow.hasOwnProperty(k) && IDX[k]) shadowKeys.push(k);
+    shadowKeys.sort(byRisk);
+    for (i = 0; i < shadowKeys.length && out.length < n; i++) {
+      if (!used[shadowKeys[i]]) { out.push(shadowKeys[i]); used[shadowKeys[i]] = 1; }
+    }
+    for (k in state.words) if (state.words.hasOwnProperty(k) && IDX[k]) {
+      s = state.words[k];
+      if (s && s.seen && s.due && s.due <= t && !used[k]) due.push(k);
+      else if (s && s.seen && s.due && s.due > t && !used[k]) {
+        m = memoryOf(k);
+        if (m && m.keep < 50 && m.gap >= 1) risk.push({ k: k, keep: m.keep });
+      }
+    }
+    due.sort(byRisk);
+    for (i = 0; i < due.length && out.length < n; i++) { out.push(due[i]); used[due[i]] = 1; }
+    risk.sort(function (a, b) { return a.keep - b.keep; });
+    for (i = 0; i < risk.length && out.length < n && i < 2; i++) {
+      if (!used[risk[i].k]) { out.push(risk[i].k); used[risk[i].k] = 1; }
     }
     var pool = shuffle(WORDS, Math.floor(parseKey(t).getTime() / 86400000) + 7);
     for (i = 0; i < pool.length && out.length < n; i++) {
@@ -448,8 +523,9 @@
         (w.s ? "<em>" + esc(w.s) + "</em>" : ""));
     } else txt("mCardEx", "");
     $("mCardEx").hidden = true;
-    var s = state.words[w.w];
-    txt("mTip", s && s.seen ? ("见过 " + s.seen + " 次 · 第 " + (s.box || 1) + " 阶 · 点卡片翻面")
+    var s = state.words[w.w], m = memoryOf(w.w);
+    txt("mTip", s && s.seen
+      ? ("见过 " + s.seen + " 次 · 第 " + (s.box || 1) + " 阶" + (m ? " · 记忆强度 " + m.keep + "%" : "") + " · 点卡片翻面")
       : "点卡片翻面 · 选「认识了」进入下一个");
   }
   function flipCard() {
@@ -1100,7 +1176,22 @@
         '<button class="m-btn m-btn-sm m-btn-main" type="button" data-act="integrate" data-k="' + esc(k) + '">照见了 +5</button></div></div>';
     }
     html += "</div>";
-    txt("mShadowBody", html);
+    var cl = shadowClusters(), pre = "", c, q, g, ws;
+    if (cl.length) {
+      pre = '<div class="m-block"><h3>错词画像 · 本地推算</h3>' +
+        '<p class="m-foot" style="text-align:left;margin:0 0 10px">按词性、词尾与形近把影子归堆，不联网、不写进存档。</p>';
+      for (c = 0; c < cl.length; c++) {
+        g = cl[c]; ws = [];
+        for (q = 0; q < Math.min(6, g.words.length); q++) ws.push(esc(g.words[q]));
+        if (g.words.length > 6) ws.push("+" + (g.words.length - 6));
+        pre += '<div class="m-row" style="display:block;min-height:0">' +
+          '<div style="display:flex;justify-content:space-between;font-size:13px"><b>' + esc(g.label) + '</b>' +
+          '<span style="color:var(--muted)">' + g.words.length + ' 个</span></div>' +
+          '<div style="font-size:12px;color:var(--ink2);margin-top:5px;line-height:1.7">' + ws.join(" · ") + '</div></div>';
+      }
+      pre += '<div class="m-foot" style="text-align:left;margin-top:10px">最常一起错的是「' + esc(cl[0].label) + '」，先照见这一类。</div></div>';
+    }
+    txt("mShadowBody", pre + html);
   }
   function sentencePool(n) {
     var out = [], used = {}, k, i, w;
@@ -1203,6 +1294,31 @@
     txt("mMastery", h);
   }
 
+  /* ---------------- 备份提醒 ---------------- */
+  function backupAge() {
+    var t = 0;
+    try { t = Number(localStorage.getItem(BK_KEY)) || 0; } catch (e) { }
+    if (!t) return -1;
+    return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  }
+  function markBackup() {
+    try { localStorage.setItem(BK_KEY, String(Date.now())); } catch (e) { }
+  }
+  function backupText(age) {
+    if (age < 0) return "⚠ 还没备份过 · 进度只在这台设备的浏览器里，清缓存就会消失。";
+    if (age === 0) return "上次备份：今天 · 数据只在本机，偶尔导出一份更安心。";
+    return age >= BK_DAYS
+      ? "⚠ 已经 " + age + " 天没备份了 · 建议现在导出一份。"
+      : "上次备份：" + age + " 天前 · 数据只在本机。";
+  }
+  function refreshBackup() {
+    var age = backupAge(), due = age < 0 || age >= BK_DAYS, b = $("mBackupBanner");
+    txt("mBackupState", backupText(age));
+    if (!b) return;
+    txt("mBackupMsg", backupText(age));
+    b.hidden = !(due && !backupDismissed);
+  }
+
   /* ---------------- 主题 / 导入导出 ---------------- */
   function setTheme(t) {
     document.documentElement.setAttribute("data-m-theme", t);
@@ -1225,6 +1341,9 @@
       a.href = url; a.download = "词林进度-" + today() + ".json";
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      markBackup();
+      backupDismissed = false;
+      refreshBackup();
       toast("进度已导出");
     } catch (e) { toast("这个浏览器不支持导出，请用桌面版"); }
   }
@@ -1427,6 +1546,11 @@
       renderMe();
     };
     $("mExport").onclick = exportData;
+    $("mBackupNow").onclick = exportData;
+    $("mBackupLater").onclick = function () {
+      backupDismissed = true;
+      $("mBackupBanner").hidden = true;
+    };
     $("mImport").onclick = function () { $("mFile").click(); };
     $("mFile").onchange = function () {
       var f = this.files && this.files[0];
@@ -1458,6 +1582,7 @@
     else if (name === "shadow") renderShadow();
     else if (name === "me") renderMe();
     refreshXp();
+    refreshBackup();
   }
 
   function boot() {

@@ -3,6 +3,7 @@
   const CILIN = (window.CILIN = window.CILIN || {});
   const ui = CILIN.ui;
   const store = function () { return CILIN.store; };
+  let backupDismissed = false;
 
   function queueForToday(plan) {
     const q = (plan.queue || plan.due.concat(plan.fresh)).slice();
@@ -29,8 +30,19 @@
     const moodMeta = window.CILIN_META.moods;
     const moodItem = moodMeta.find(function (m) { return m.id === mood; }) || null;
     const journal = st.state.journal.slice(0, 2);
+    const bkAge = (CILIN.views && CILIN.views.journey && CILIN.views.journey.backupAge) ? CILIN.views.journey.backupAge() : 0;
+    const bkDue = bkAge < 0 || bkAge >= 14;
+    const bkText = bkAge < 0 ? "还没备份过" : bkAge === 0 ? "今天刚备份过" : "已经 " + bkAge + " 天没备份了";
+    const weakest = st.weakest(3);
 
     root.innerHTML = `<div class="page">
+      ${bkDue && !backupDismissed ? `<section class="card card-pad" id="backupBanner" style="margin-bottom:16px;border-left:3px solid var(--red)">
+        <div class="small" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="flex:1;min-width:180px">⚠ ${bkText} · 进度只在这台设备的浏览器里，建议现在导出一份备份。</span>
+          <button class="btn btn-line btn-sm" data-backup-now type="button">现在导出</button>
+          <button class="btn btn-ghost btn-sm" data-backup-later type="button">稍后</button>
+        </div>
+      </section>` : ""}
       <section class="card hero">
         <div>
           <div class="eyebrow">${ui.esc(ui.fmtDate(today))} · ${ui.esc(ui.greeting())}</div>
@@ -65,6 +77,11 @@
                 <div class="plan-main"><b>到期复习</b><span>${plan.dueTotal > plan.due.length ? "今日到期共 " + plan.dueTotal + " 个，先取 " + plan.due.length + " 个" : "按间隔重复安排，今天该见的词"}</span></div>
                 <span class="plan-num">${plan.due.length}</span>
               </div>
+              ${(plan.risk && plan.risk.length) ? `<div class="plan-row">
+                <span class="plan-ic">${ui.icon("spark", 16)}</span>
+                <div class="plan-main"><b>快要忘记</b><span>还没到期，但记忆强度已偏低，提前见一面</span></div>
+                <span class="plan-num">${plan.risk.length}</span>
+              </div>` : ""}
               <div class="plan-row">
                 <span class="plan-ic">${ui.icon("seed", 16)}</span>
                 <div class="plan-main"><b>新词</b><span>从${ui.esc(CILIN.scopeLabel())}词库中拾取</span></div>
@@ -141,6 +158,24 @@
               ${ui.icon("chevron", 16)}
             </div>
           </section>
+
+          ${weakest.length ? `<section class="card card-pad mt16" id="memoryCard">
+            <div class="sec-title" style="margin-top:0">
+              <div><span class="eyebrow">RETENTION</span><h2>记忆强度</h2></div>
+              <span class="pill">本地预测</span>
+            </div>
+            <p class="small muted">按间隔重复的阶数、距上次见面与答对率估算，越低越该先见一面。</p>
+            <div class="mem-list">
+              ${weakest.map(function (x) {
+                return `<div class="mem-row">
+                  <b>${ui.esc(x.word.w)}</b>
+                  <div class="mem-bar"><i style="width:${x.keep}%;${x.keep < 50 ? "background:var(--red)" : ""}"></i></div>
+                  <span class="small faint">${x.keep}% · ${x.gap} 天前见过</span>
+                </div>`;
+              }).join("")}
+            </div>
+            <div class="small faint mt12">这是估算，不是考试：它只决定谁排在前面，不会改变你的存档。</div>
+          </section>` : ""}
         </div>
       </div>
     </div>`;
@@ -197,6 +232,14 @@
       CILIN.reRender();
     };
 
+    const bnow = root.querySelector("[data-backup-now]");
+    if (bnow) bnow.onclick = function () { CILIN.views.journey.exportBackup(); };
+    const blater = root.querySelector("[data-backup-later]");
+    if (blater) blater.onclick = function () {
+      backupDismissed = true;
+      const b = root.querySelector("#backupBanner");
+      if (b) b.hidden = true;
+    };
     const editName = root.querySelector("#editName");
     if (editName) editName.onclick = function () { openNameSheet(st); };
   }
