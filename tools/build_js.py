@@ -239,6 +239,9 @@ def main():
     q["match15"] = nt.get("match15", [])
     q["translation_u14a"] = nt.get("translation_u14a", [])
     q["paraphrase_u14a"] = nt.get("paraphrase_u14a", [])
+    # 扩充题集：U1–U7 讲义翻译、高难度翻译、段落写作活动（来源见各题 source 字段）
+    for _k in ("translation_u17", "translation_hard", "paragraph_drill"):
+        q[_k] = nt.get(_k, [])
     tb = load_json(os.path.join(BUILD, "textbook_sets.json"), {})
     q["textbook"] = tb.get("sets", [])
     # 语料员提取的真题素材可并入（题库编辑未全写时兜底）

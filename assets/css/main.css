@@ -517,7 +517,7 @@ p { margin: 0; }
   font-family: var(--serif); font-size: 16.5px; line-height: 2; color: var(--ink-2);
   padding: 16px; border-left: 2px solid var(--gold-dim); background: var(--panel-2); border-radius: 0 12px 12px 0;
 }
-.reference { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); font-family: var(--latin); font-size: 15px; line-height: 1.8; color: var(--ink-2); }
+.reference { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); font-family: var(--latin); font-size: 15px; line-height: 1.8; color: var(--ink-2); white-space: pre-wrap; }
 .kv-list { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .kv-list div { display: flex; gap: 8px; }
 .kv-list .k { font-family: var(--latin); color: var(--gold-2); white-space: nowrap; }

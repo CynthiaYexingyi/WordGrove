@@ -751,7 +751,10 @@
       { id: "match15", name: "15 词填空", desc: "单元词表匹配 15 个句子" },
       { id: "textbook", name: "课文判断 T/F/NG", desc: "课本练习，判断正误" },
       { id: "translation_u14a", name: "句子翻译", desc: "课件例句汉译英" },
-      { id: "paraphrase_u14a", name: "改写练习", desc: "Paraphrasing 复习" }
+      { id: "paraphrase_u14a", name: "改写练习", desc: "Paraphrasing 复习" },
+      { id: "translation_u17", name: "讲义翻译 20 句", desc: "U1–U7 汉译英测验" },
+      { id: "translation_hard", name: "进阶翻译 50 句", desc: "高难度长句挑战" },
+      { id: "paragraph_drill", name: "段落写作工坊", desc: "找毛病 / 主题句 / 搭段" }
     ] }
   ];
   function trainName(id) {
@@ -938,7 +941,7 @@
       }
       return qs;
     }
-    if (kind === "translation" || kind === "translation_u14a" || kind === "writing" || kind === "paraphrase_u14a") {
+    if (kind === "translation" || kind === "translation_u14a" || kind === "writing" || kind === "paraphrase_u14a" || kind === "translation_u17" || kind === "translation_hard" || kind === "paragraph_drill") {
       var arr = QUESTIONS[kind] || [];
       var single = set && (set.zh || set.original || set.topic);
       var picks = single ? [set] : shuffle(arr, Date.now()).slice(0, kind === "writing" ? 1 : 4);
@@ -955,7 +958,7 @@
         if (it.technique) extra += "改写思路：" + esc(it.technique) + "<br>";
         if (it.phrases && it.phrases.length) extra += "可用表达：" + esc(it.phrases.join("；"));
         qs.push({ type: "text", stem: stem, sub: sub, reference: ref, extra: extra,
-          explain: it.technique || "", eyebrow: kind === "writing" ? "写作 · 自评" : (kind === "paraphrase_u14a" ? "改写 · 自评" : "翻译 · 自评"),
+          explain: it.technique || "", eyebrow: kind === "writing" ? "写作 · 自评" : (kind === "paraphrase_u14a" ? "改写 · 自评" : (kind === "paragraph_drill" ? "段落写作 · 自评" : "翻译 · 自评")),
           stat: kind === "writing" ? "written" : "translated", src: it.source || "" });
       }
       return qs;
@@ -972,7 +975,7 @@
       if (!ok) { toast("题库加载失败，检查网络后重试"); return; }
       var sets = QUESTIONS[id] || [];
       if (!sets.length) { toast("这一组暂时没有题"); return; }
-      var direct = { cloze3: 1, translation: 1, translation_u14a: 1, writing: 1, paraphrase_u14a: 1 };
+      var direct = { cloze3: 1, translation: 1, translation_u14a: 1, writing: 1, paraphrase_u14a: 1, translation_u17: 1, translation_hard: 1, paragraph_drill: 1 };
       if (direct[id]) {
         openQuiz(buildSet(id, null), { title: trainName(id), kind: id });
         return;

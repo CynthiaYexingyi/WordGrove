@@ -332,14 +332,17 @@
   function startWriting(set) {
     if (!set) return;
     const hasModel = !!set.model;
+    const draft = store().writingOf(set.id);
+    const draftText = draft ? (draft.text || "") : "";
     const body = `<div class="q-wrap">
       <div class="passage-meta"><span class="eyebrow">WRITING</span><span class="small faint">${ui.esc(set.source || "")}</span></div>
       <div class="q-stem" style="font-size:18px">${ui.esc(set.topic || set.title || "")}</div>
       ${set.cn ? `<p class="small muted" style="margin:-6px 0 12px">${ui.esc(set.cn)}</p>` : ""}
       ${set.requirements && set.requirements.length ? `<div class="chip-row" style="margin-bottom:14px">${set.requirements.map(function (r) { return `<span class="pill">${ui.esc(r)}</span>`; }).join("")}</div>` : ""}
-      <div class="field"><label>正文 <span id="wc" class="faint"></span></label>
-        <textarea id="writeInput" rows="10" placeholder="Write your essay here…"></textarea></div>
+      <div class="field"><label>正文 <span id="wc" class="faint">${draft ? (draft.words || 0) + " words · 已恢复上次内容" : ""}</span></label>
+        <textarea id="writeInput" rows="10" placeholder="Write your essay here…">${ui.esc(draftText)}</textarea></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-line" data-clear>清空重写</button>
         <button class="btn btn-line" data-reveal>${hasModel ? "看范文与提纲" : "看提纲与表达"}</button>
         <button class="btn btn-primary" data-done>完成这一篇</button>
       </div>
@@ -366,8 +369,21 @@
     const wc = ov.querySelector("#wc");
     input.addEventListener("input", function () {
       const n = (input.value.trim().match(/[A-Za-z][A-Za-z'-]*/g) || []).length;
-      wc.textContent = n + " words";
+      wc.textContent = n + " words · 自动暂存";
+      store().saveWriting(set.id, input.value);
     });
+    // 关闭前补存一次，避开 store.save() 的 120ms 防抖窗口
+    const baseClose = ov.querySelector("[data-close]").onclick;
+    ov.querySelector("[data-close]").onclick = function () {
+      if (input.value.trim()) store().saveWriting(set.id, input.value);
+      baseClose();
+    };
+    ov.querySelector("[data-clear]").onclick = function () {
+      store().clearWriting(set.id);
+      input.value = "";
+      wc.textContent = "";
+      ui.toast("已清空", "这一篇从头再来");
+    };
     ov.querySelector("[data-reveal]").onclick = function () {
       ov.querySelector("#refBox").style.display = "block";
       this.disabled = true;
@@ -375,12 +391,57 @@
     ov.querySelector("[data-done]").onclick = function () {
       const n = (input.value.trim().match(/[A-Za-z][A-Za-z'-]*/g) || []).length;
       if (n < 60) { ui.toast("篇幅还太短", "四级写作一般 120–180 词"); return; }
+      store().saveWriting(set.id, input.value, true);
       store().flag("written");
       store().addXp(8);
       store().recordSession("writing", 1, 1);
-      ui.toast("完成一篇写作", "经验 +8");
-      scoreSheet({ correct: 1, total: 1, xp: 8, kindLabel: "写作", note: "对照范文，挑一个结构或短语，放进你的下一篇。" });
+      ui.toast("完成一篇写作", "经验 +8 · 正文已留存");
+      scoreSheet({ correct: 1, total: 1, xp: 8, kindLabel: "写作", note: "正文已存进写作记录；对照范文，挑一个结构或短语，放进你的下一篇。" });
     };
+  }
+
+  function writingList() {
+    const all = store().state.writing || {};
+    const ids = Object.keys(all).sort(function (a, b) {
+      return String(all[b].updatedAt || "").localeCompare(String(all[a].updatedAt || ""));
+    });
+    const byId = {};
+    Q("writing").forEach(function (s) { byId[s.id] = s; });
+    const rows = ids.map(function (id) {
+      const rec = all[id] || {};
+      const set = byId[id];
+      const title = set ? (set.title || set.topic || id) : id;
+      const when = rec.updatedAt
+        ? new Date(rec.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+        : "";
+      const peek = String(rec.text || "");
+      return `<div class="card card-pad" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+          <div><div style="font-weight:600">${ui.esc(title)}</div>
+            <div class="small faint">${ui.esc(when)} · ${rec.words || 0} 词 · ${rec.done ? "已完成" : "草稿"}</div></div>
+          <div style="display:flex;gap:8px;flex:none">
+            <button class="btn btn-line btn-sm" data-open-w="${ui.esc(id)}">继续</button>
+            <button class="btn btn-line btn-sm" data-del-w="${ui.esc(id)}">删除</button>
+          </div>
+        </div>
+        ${peek ? `<div class="small muted mt8" style="white-space:pre-wrap;max-height:70px;overflow:hidden">${ui.esc(peek.slice(0, 160))}${peek.length > 160 ? "…" : ""}</div>` : ""}
+      </div>`;
+    }).join("");
+    const body = ids.length ? `<div>${rows}</div>` : `<p class="muted">还没有写作记录。写一半也没关系，正文会自动留在这里。</p>`;
+    const ov = sessionShell("写作记录", body, { count: ids.length + " 篇" });
+    ov.querySelectorAll("[data-open-w]").forEach(function (btn) {
+      btn.onclick = function () {
+        const set = byId[btn.getAttribute("data-open-w")];
+        if (set) startWriting(set);
+      };
+    });
+    ov.querySelectorAll("[data-del-w]").forEach(function (btn) {
+      btn.onclick = function () {
+        store().clearWriting(btn.getAttribute("data-del-w"));
+        ui.toast("已删除这条记录");
+        writingList();
+      };
+    });
   }
 
   /* ---------- 听力 ---------- */
@@ -635,19 +696,19 @@
   function startParaphrase(set) {
     if (!set) return;
     const body = `<div class="q-wrap">
-      <div class="passage-meta"><span class="eyebrow">PARAPHRASE · U1–U4 TEXT A</span><span class="small faint">${ui.esc(set.source || "")}</span></div>
-      <div class="ws-label">原句</div>
+      <div class="passage-meta"><span class="eyebrow">${ui.esc(set.eyebrow || "PARAPHRASE · U1–U4 TEXT A")}</span><span class="small faint">${ui.esc(set.source || "")}</span></div>
+      <div class="ws-label">${ui.esc(set.stemLabel || "原句")}</div>
       <div class="prompt-zh" style="font-size:16px">${ui.esc(set.original || "")}</div>
-      <div class="field mt16"><label>你的改写</label><textarea id="ppInput" rows="5" placeholder="换结构、换词，保留原意…"></textarea></div>
+      <div class="field mt16"><label>${ui.esc(set.inputLabel || "你的改写")}</label><textarea id="ppInput" rows="5" placeholder="${ui.esc(set.placeholder || "换结构、换词，保留原意…")}"></textarea></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn btn-line" data-reveal>看参考改写</button>
-        <button class="btn btn-primary" data-done>完成这一句</button>
+        <button class="btn btn-line" data-reveal>${ui.esc(set.revealLabel || "看参考改写")}</button>
+        <button class="btn btn-primary" data-done>${ui.esc(set.doneLabel || "完成这一句")}</button>
       </div>
       <div id="ppRef" class="mt16" style="display:none">
         <div class="divider"></div>
-        <div class="ws-label">REFERENCE</div>
+        <div class="ws-label">${ui.esc(set.referenceLabel || "REFERENCE")}</div>
         <div class="reference mt8">${ui.esc(set.reference || "")}</div>
-        ${set.technique ? `<p class="small muted mt8">技巧：${ui.esc(set.technique)}</p>` : ""}
+        ${set.technique ? `<p class="small muted mt8">${ui.esc(set.techniqueLabel || "技巧")}：${ui.esc(set.technique)}</p>` : ""}
       </div>
     </div>`;
     const ov = sessionShell("Paraphrase · " + (set.title || ""), body, { count: "自由练习" });
@@ -696,6 +757,8 @@
     else if (kind === "textbook") startTextbook(set);
   }
 
+  /* 方法指导已独立为 views/method.js，训练页仅保留跳转入口 */
+
   /* ---------- Hub ---------- */
   function lastSession(kind) {
     return (store().state.sessions || []).find(function (s) { return s.kind === kind; }) || null;
@@ -716,7 +779,9 @@
       reading: Q("reading").length, cloze: Q("cloze").length, matching: Q("matching").length,
       translation: Q("translation").length, writing: Q("writing").length, listening: Q("listening").length,
       cloze3: Q("cloze3").length, match15: Q("match15").length, translation_u14a: Q("translation_u14a").length,
-      paraphrase_u14a: Q("paraphrase_u14a").length, textbook: Q("textbook").length
+      paraphrase_u14a: Q("paraphrase_u14a").length, textbook: Q("textbook").length,
+      translation_u17: Q("translation_u17").length, translation_hard: Q("translation_hard").length,
+      paragraph_drill: Q("paragraph_drill").length
     };
     root.innerHTML = `<div class="page">
       <div class="page-head">
@@ -725,7 +790,7 @@
           <h1>训练</h1>
           <div class="sub">题不是障碍，是照见自己的方式。先挑一种，做一组就好。</div>
         </div>
-        <div class="head-side"><span class="pill">到期词 ${due}</span></div>
+        <div class="head-side"><span class="pill">到期词 ${due}</span><button class="btn btn-line btn-sm" data-method-guide>方法指导</button><button class="btn btn-line btn-sm" data-writing-list>写作记录 ${Object.keys(store().state.writing || {}).length}</button></div>
       </div>
 
       <div class="train-grid">
@@ -741,6 +806,9 @@
         ${card("translation_u14a", "river", "汉译英 · U1–U4", "TEXT A TRANSLATION", "U1–U4 Text A 的句段翻译，先写再看参考。", counts.translation_u14a ? counts.translation_u14a + " 题" : "", "", !counts.translation_u14a)}
         ${card("paraphrase_u14a", "leaf", "Paraphrase", "U1–U4 TEXT A", "换结构、换词，保留原意；以课件 paraphrasing 方法为依据。", counts.paraphrase_u14a ? counts.paraphrase_u14a + " 句" : "", "", !counts.paraphrase_u14a)}
         ${card("textbook", "book", "课本原题", "TEXTBOOK T/F/NG", "教材 Exercise 1 原题，答案据教师 key。", counts.textbook ? counts.textbook + " 套" : "", "", !counts.textbook)}
+        ${card("translation_u17", "river", "汉译英 · U1–U7", "LECTURE QUIZ · 20", "课件讲义翻译测验，覆盖全 7 单元与跨单元抽象句，先写再看参考。", counts.translation_u17 ? counts.translation_u17 + " 题" : "", "", !counts.translation_u17)}
+        ${card("translation_hard", "river", "进阶汉译英 · 50", "HARD MODE · 50", "高难度文学化长句，考习语、语域、被动与从句；先译再看参考。", counts.translation_hard ? counts.translation_hard + " 题" : "", "", !counts.translation_hard)}
+        ${card("paragraph_drill", "pen", "段落写作工坊", "PARAGRAPH LAB", "找毛病、主题句诊所、分步搭段与同伴互评；含教师参考。", counts.paragraph_drill ? counts.paragraph_drill + " 关" : "", "", !counts.paragraph_drill)}
         <article class="card card-pad train-card wide" style="cursor:default">
           <span class="tc-ic">${ui.icon("shadow", 18)}</span>
           <h3>影子 · 跟读与听写</h3>
@@ -748,15 +816,20 @@
           <div class="tc-foot"><span>${store().shadowCount()} 个影子待照见</span><button class="btn btn-line btn-sm" data-go-shadow>去影子</button></div>
         </article>
       </div>
-      <div class="mt24 small faint">题库共 ${counts.reading + counts.cloze + counts.matching + counts.translation + counts.writing + counts.listening + counts.cloze3 + counts.match15 + counts.translation_u14a + counts.paraphrase_u14a + counts.textbook} 组材料；词汇速测由全词表按「旅程 → 词汇范围」实时生成。</div>
+      <div class="mt24 small faint">题库共 ${counts.reading + counts.cloze + counts.matching + counts.translation + counts.writing + counts.listening + counts.cloze3 + counts.match15 + counts.translation_u14a + counts.paraphrase_u14a + counts.textbook + counts.translation_u17 + counts.translation_hard + counts.paragraph_drill} 组材料；词汇速测由全词表按「旅程 → 词汇范围」实时生成。</div>
     </div>`;
+
+    const wl = root.querySelector("[data-writing-list]");
+    if (wl) wl.onclick = function () { writingList(); };
+    const mg = root.querySelector("[data-method-guide]");
+    if (mg) mg.onclick = function () { CILIN.go("/method"); };
 
     root.querySelectorAll("[data-train]").forEach(function (c) {
       c.onclick = function () {
         const kind = c.getAttribute("data-train");
         if (kind === "vocab") { vocabChooser(); return; }
         if (kind === "cloze3") { startCloze3(); return; }
-        chooseSet(kind, { cloze: "选词填空", reading: "仔细阅读", matching: "长篇匹配", translation: "汉译英", writing: "写作", listening: "听力微练", match15: "15 词匹配", translation_u14a: "汉译英 · U1–U4", paraphrase_u14a: "Paraphrase", textbook: "课本原题" }[kind], kind.toUpperCase());
+        chooseSet(kind, { cloze: "选词填空", reading: "仔细阅读", matching: "长篇匹配", translation: "汉译英", writing: "写作", listening: "听力微练", match15: "15 词匹配", translation_u14a: "汉译英 · U1–U4", paraphrase_u14a: "Paraphrase", textbook: "课本原题", translation_u17: "汉译英 · U1–U7", translation_hard: "进阶汉译英 · 50", paragraph_drill: "段落写作工坊" }[kind], kind.toUpperCase());
       };
     });
     const gs = root.querySelector("[data-go-shadow]");
@@ -764,5 +837,5 @@
   }
 
   CILIN.views = CILIN.views || {};
-  CILIN.views.train = { render: render, startVocab: startVocab, _start: { reading: startReading, cloze: startCloze, matching: startMatching, translation: startTranslation, writing: startWriting, listening: startListening, cloze3: startCloze3, match15: startMatch15, translation_u14a: startTranslation, paraphrase_u14a: startParaphrase, textbook: startTextbook } };
+  CILIN.views.train = { render: render, startVocab: startVocab, writingList: writingList, _start: { reading: startReading, cloze: startCloze, matching: startMatching, translation: startTranslation, writing: startWriting, listening: startListening, cloze3: startCloze3, match15: startMatch15, translation_u14a: startTranslation, paraphrase_u14a: startParaphrase, textbook: startTextbook, translation_u17: startTranslation, translation_hard: startTranslation, paragraph_drill: startParaphrase } };
 })();

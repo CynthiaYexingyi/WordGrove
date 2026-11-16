@@ -20,7 +20,8 @@
       journal: [],
       customWords: {},
       achievements: {},
-      stats: { integrated: 0, dailyGoals: 0, translated: 0, written: 0, listened: 0, quizzes: 0 }
+      stats: { integrated: 0, dailyGoals: 0, translated: 0, written: 0, listened: 0, quizzes: 0 },
+      writing: {}
     };
   }
 
@@ -92,6 +93,7 @@
           this.state.reading = this.state.reading || {};
           this.state.todayQueue = this.state.todayQueue || { date: "", words: [] };
           this.state.customWords = this.state.customWords || {};
+          this.state.writing = this.state.writing || {};
           this.state.journal = this.state.journal || [];
           this.state.sessions = this.state.sessions || [];
           this.state.achievements = this.state.achievements || {};
@@ -445,6 +447,29 @@
       this.state.stats[name] = (this.state.stats[name] || 0) + 1;
       this.save();
       this.checkAchievements();
+    },
+
+    /* 写作草稿 / 记录：按题目 id 存正文，随进度导出；不升 state.v */
+    saveWriting: function (id, text, done) {
+      if (!id) return;
+      const s = String(text == null ? "" : text);
+      const old = (this.state.writing || {})[id] || {};
+      this.state.writing[id] = {
+        text: s,
+        words: (s.trim().match(/[A-Za-z][A-Za-z'-]*/g) || []).length,
+        done: done === undefined ? !!old.done : !!done,
+        updatedAt: new Date().toISOString()
+      };
+      this.save();
+    },
+
+    writingOf: function (id) { return ((this.state.writing || {})[id]) || null; },
+
+    clearWriting: function (id) {
+      if (this.state.writing && this.state.writing[id]) {
+        delete this.state.writing[id];
+        this.save();
+      }
     },
 
     completeDailyGoal: function () {

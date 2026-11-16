@@ -43,7 +43,7 @@
     });
   }
 
-  const ROUTES = ["today", "grove", "read", "train", "shadow", "journey"];
+  const ROUTES = ["today", "grove", "read", "train", "method", "shadow", "journey"];
 
   const IRREG = {
     children: "child", men: "man", women: "woman", people: "person", feet: "foot", teeth: "tooth",
