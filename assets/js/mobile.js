@@ -1574,8 +1574,105 @@
       toast("已重置，正在刷新");
       setTimeout(function () { location.reload(); }, 600);
     };
+    $("mMethod").onclick = openMethod;
+    $("mMethodClose").onclick = closeMethod;
     $("mDesktop").onclick = function () { location.href = "index.html?desktop=1"; };
   }
+
+  /* ---------- 方法讲义：按需加载桌面同一份数据，手机端只做折叠阅读 ---------- */
+  var methodGuide = null, methodCurrent = null;
+  function methodBlock(b) {
+    var h = '<div class="blk"><h3>' + esc(b.title) + '</h3>', i, j, it, r, ln;
+    if (b.kind === "table" || b.kind === "pairs") {
+      h += '<div class="kv">';
+      var rows = b.kind === "table" ? b.rows : b.items;
+      for (i = 0; i < (rows || []).length; i++) {
+        r = rows[i];
+        if (typeof r === "string") h += '<div><span class="v">· ' + esc(r) + '</span></div>';
+        else if (b.kind === "table") h += '<div><span class="k">' + esc(r[0]) + ' · <b style="color:var(--gold)">' + esc(r[1]) + '</b></span><span class="v">' + esc(r[2]) + '</span></div>';
+        else h += '<div><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + '</span></div>';
+      }
+      h += '</div>';
+    } else if (b.kind === "numbered") {
+      h += '<ol style="margin:0;padding-left:20px">';
+      for (i = 0; i < (b.items || []).length; i++) h += '<li class="small">' + esc(b.items[i]) + '</li>';
+      h += '</ol>';
+    } else if (b.kind === "bullets" || b.kind === "checklist" || b.kind === "contrast") {
+      if (b.kind === "contrast") {
+        h += '<div class="small"><b style="color:var(--gold)">✓ 该做</b><div class="muted" style="margin-top:4px">' +
+          (b.good || []).map(function (x) { return "· " + esc(x); }).join("<br>") + '</div>' +
+          '<b style="color:var(--muted);display:block;margin-top:10px">✗ 别做</b><div class="muted" style="margin-top:4px">' +
+          (b.bad || []).map(function (x) { return "· " + esc(x); }).join("<br>") + '</div></div>';
+      } else if (b.kind === "bullets") {
+        h += '<div class="small muted">' + (b.items || []).map(function (x) { return "· " + esc(x); }).join("<br>") + '</div>';
+      } else {
+        for (i = 0; i < (b.groups || []).length; i++) {
+          h += '<div class="small muted" style="margin-top:8px"><b style="color:var(--ink)">' + esc(b.groups[i][0]) + '</b><div style="margin-top:4px">' +
+            (b.groups[i][1] || []).map(function (x) { return "☐ " + esc(x); }).join("<br>") + '</div></div>';
+        }
+      }
+    } else if (b.kind === "quiz") {
+      if (b.note) h += '<div class="small muted" style="margin-top:6px">' + esc(b.note) + '</div>';
+      for (i = 0; i < (b.items || []).length; i++) {
+        it = b.items[i];
+        h += '<details><summary>' + esc(it[0]) + '</summary><div><b>' + esc(it[1]) + '</b> · ' + esc(it[2]) + '</div></details>';
+      }
+    } else if (b.kind === "concept" || b.kind === "note") {
+      h += '<div class="' + (b.kind === "note" ? "note" : "small muted") + '">' + esc(b.text) + '</div>';
+    } else if (b.kind === "steps") {
+      for (i = 0; i < (b.items || []).length; i++) {
+        it = b.items[i];
+        h += '<div class="step"><i>' + (i + 1) + '</i><div class="small"><b>' + esc(it.t) + '</b><div class="muted">' + esc(it.d) + '</div></div></div>';
+      }
+    } else if (b.kind === "example") {
+      if (b.note) h += '<div class="small muted" style="margin-top:6px">' + esc(b.note) + '</div>';
+      h += '<div class="ex">';
+      for (i = 0; i < (b.lines || []).length; i++) {
+        ln = b.lines[i];
+        if (typeof ln === "string") h += '<div class="row muted">' + esc(ln) + '</div>';
+        else h += '<div class="row"><span class="tag">' + esc(ln[0]) + '　</span>' + esc(ln[1]) +
+          (ln[2] ? '<div class="muted" style="margin-top:2px">' + esc(ln[2]) + '</div>' : "") + '</div>';
+      }
+      h += '</div>';
+    }
+    return h + '</div>';
+  }
+  function paintMethod(id) {
+    var g = methodGuide[0], idx = 0, i, lead = "", blocks = "", tabs, body;
+    for (i = 0; i < methodGuide.length; i++) if (methodGuide[i].id === id) { g = methodGuide[i]; idx = i; break; }
+    methodCurrent = g.id;
+    tabs = $("mMethodTabs").getElementsByTagName("button");
+    for (i = 0; i < tabs.length; i++) tabs[i].className = tabs[i].getAttribute("data-m-g") === g.id ? "on" : "";
+    for (i = 0; i < (g.lead || []).length; i++) lead += '<div class="lead">' + esc(g.lead[i]) + '</div>';
+    for (i = 0; i < (g.blocks || []).length; i++) blocks += methodBlock(g.blocks[i]);
+    $("mMethodBody").innerHTML = '<div class="eyebrow">' + esc(g.en) + '</div><h2>' + esc(g.title) + '</h2>' + lead + blocks +
+      '<div class="foot">内容重编自《能力》课程材料与课件；纯查阅，不影响学习进度。</div>';
+    $("mMethodTitle").innerHTML = esc(g.tab);
+    $("mMethodCount").innerHTML = (idx + 1) + " / " + methodGuide.length;
+    $("mMethodBody").scrollTop = 0;
+  }
+  function mountMethod() {
+    var guide = window.CILIN && window.CILIN.METHOD_GUIDE, tabs = "", i;
+    if (!guide || !guide.length) { toast("讲义没能读到，请重试"); return; }
+    methodGuide = guide;
+    for (i = 0; i < guide.length; i++) tabs += '<button type="button" data-m-g="' + esc(guide[i].id) + '">' + esc(guide[i].tab) + '</button>';
+    $("mMethodTabs").innerHTML = tabs;
+    var btns = $("mMethodTabs").getElementsByTagName("button");
+    for (i = 0; i < btns.length; i++) btns[i].onclick = function () { paintMethod(this.getAttribute("data-m-g")); };
+    paintMethod(methodGuide[0].id);
+  }
+  function openMethod() {
+    $("mMethodModal").hidden = false;
+    if (methodGuide) { paintMethod(methodCurrent || methodGuide[0].id); return; }
+    $("mMethodBody").innerHTML = '<div class="small muted">正在载入讲义…</div>';
+    if (window.CILIN && window.CILIN.METHOD_GUIDE) { mountMethod(); return; }
+    var s = document.createElement("script");
+    s.src = "assets/js/views/method.js";
+    s.onload = mountMethod;
+    s.onerror = function () { toast("讲义加载失败，请检查网络后重试"); };
+    document.body.appendChild(s);
+  }
+  function closeMethod() { $("mMethodModal").hidden = true; }
 
   function renderTab(name) {
     if (name === "today") renderToday();

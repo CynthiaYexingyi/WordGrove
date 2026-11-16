@@ -600,6 +600,8 @@
     paint(GUIDE[0].id);
   }
 
+  /* 手机轻量版按需加载本文件，直接复用同一份讲义数据，不另存副本 */
+  CILIN.METHOD_GUIDE = GUIDE;
   CILIN.views = CILIN.views || {};
   CILIN.views.method = { render: render };
 })();

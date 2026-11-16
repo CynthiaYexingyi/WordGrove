@@ -101,6 +101,30 @@ html[data-m-theme="dark"] .m-tab.on i{color:#111a16}
 .m-modal-head span{font-size:12px;color:var(--muted)}
 .m-modal-head button{width:36px;height:36px;border-radius:11px;border:1px solid var(--line);font-size:16px}
 .m-modal-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px calc(28px + env(safe-area-inset-bottom))}
+/* 方法讲义（手机端按需加载，复用桌面同一份数据） */
+.m-method-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:6px;-webkit-overflow-scrolling:touch}
+.m-method-tabs button{white-space:nowrap;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 12px;font-size:12px;color:var(--muted)}
+.m-method-tabs button.on{border-color:var(--gold);color:var(--gold)}
+.m-method .eyebrow{font-size:11px;letter-spacing:.16em;color:var(--gold)}
+.m-method h2{font-size:20px;margin:6px 0 10px}
+.m-method .lead{font-size:13px;line-height:1.85;color:var(--ink2);border-left:2px solid var(--gold);padding-left:12px;margin-bottom:4px}
+.m-method .blk{margin-top:18px}
+.m-method .blk>h3{font-size:11px;letter-spacing:.14em;color:var(--gold);margin:0 0 8px}
+.m-method .small{font-size:13px;line-height:1.85;color:var(--ink2)}
+.m-method .muted{color:var(--muted)}
+.m-method .kv>div{display:flex;gap:10px;border-bottom:1px solid var(--line);padding:7px 0;font-size:13px;line-height:1.7}
+.m-method .kv .k{flex:0 0 34%;color:var(--ink);font-weight:600}
+.m-method .kv .v{flex:1;color:var(--muted)}
+.m-method .step{display:flex;gap:10px;margin-top:10px;align-items:flex-start}
+.m-method .step i{flex:0 0 22px;height:22px;border-radius:50%;border:1px solid var(--gold);color:var(--gold);font-style:normal;font-size:11px;display:flex;align-items:center;justify-content:center}
+.m-method .ex{border-left:2px solid var(--gold);background:var(--card);padding:10px 12px;border-radius:0 8px 8px 0;margin-top:8px}
+.m-method .ex .row{margin:6px 0;font-size:13px;line-height:1.8}
+.m-method .ex .tag{color:var(--gold);font-weight:600}
+.m-method .note{margin-top:8px;padding:10px 12px;border:1px dashed var(--gold);border-radius:8px;color:var(--gold);font-size:13px;line-height:1.8}
+.m-method details{margin-top:8px;font-size:13px}
+.m-method details summary{cursor:pointer;color:var(--ink)}
+.m-method details div{padding:6px 0 0 16px;color:var(--muted)}
+.m-method .foot{margin-top:22px;font-size:12px;color:var(--muted);line-height:1.7}
 .m-q-eyebrow{font-size:11px;letter-spacing:.12em;color:var(--gold);margin-bottom:10px}
 .m-q-stem{font-size:19px;line-height:1.65;font-weight:600;margin-bottom:12px;word-break:break-word}
 .m-q-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
@@ -287,6 +311,7 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
       <div class="m-link" id="mExport">导出进度 <em>存成 JSON 文件</em></div>
       <div class="m-link" id="mImport">导入进度 <em>从 JSON 恢复</em></div>
       <div class="m-link" id="mReset">重置进度 <em>先导出备份</em></div>
+      <div class="m-link" id="mMethod">方法讲义 <em>10 讲 · 可自学</em></div>
       <div class="m-link" id="mDesktop">使用桌面版 <em>完整功能</em></div>
       <p class="m-foot" id="mBackupState" style="text-align:left;margin:12px 0 0;font-size:12px"></p>
     </div>
@@ -349,6 +374,16 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
     <span id="mQuizCount">1 / 8</span>
   </div>
   <div class="m-modal-body" id="mQuizBody"></div>
+</div>
+
+<div class="m-modal" id="mMethodModal" hidden>
+  <div class="m-modal-head">
+    <button id="mMethodClose" type="button" aria-label="关闭">✕</button>
+    <b id="mMethodTitle">方法讲义</b>
+    <span id="mMethodCount">10 讲</span>
+  </div>
+  <div class="m-method-tabs" id="mMethodTabs" style="padding:10px 16px 0"></div>
+  <div class="m-modal-body m-method" id="mMethodBody"></div>
 </div>
 
 <div class="m-boot" id="mBoot">
