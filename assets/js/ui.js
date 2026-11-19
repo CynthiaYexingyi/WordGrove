@@ -310,6 +310,7 @@
   ui.wordState = function (w) {
     const meta = window.CILIN.store ? window.CILIN.store.stateOf(w.w) : null;
     if (!meta || !meta.seen) return { label: "未见", cls: "ghost" };
+    if (meta.easy) return { label: "已略过", cls: "gold" };
     if (meta.box >= 4) return { label: "已结果", cls: "gold" };
     if (meta.box >= 2) return { label: "抽枝", cls: "moss" };
     return { label: "发芽", cls: "moss" };

@@ -29,7 +29,7 @@
   // box 越大抗遗忘越久；距上次见面按指数衰减；答对率做修正。老存档缺字段时按默认值兜底。
   function memoryOf(state, w, today) {
     const s = state.words[w.w || w];
-    if (!s || !s.seen) return null;
+    if (!s || !s.seen || s.easy) return null;
     const box = Math.min(5, Math.max(0, s.box || 1));
     const right = s.right || 0, wrong = s.wrong || 0;
     const acc = right + wrong ? right / (right + wrong) : 0.5;
@@ -193,6 +193,36 @@
     /* ---------- 单词状态 ---------- */
     stateOf: function (w) { return this.state.words[w] || null; },
     isSeen: function (w) { const s = this.state.words[w]; return !!(s && s.seen); },
+    isSimple: function (w) { const s = this.state.words[w.w || w]; return !!(s && s.easy); },
+
+    // 「太简单 · 一遍过」：标记后不再进入到期复习 / 遗忘预测 / 新词池；不删学习记录，可随时恢复。
+    markSimple: function (word) {
+      const key = word.w || word, today = this.today();
+      let s = this.state.words[key];
+      if (!s) s = this.state.words[key] = { first: today, seen: 0, box: 1, due: today, right: 0, wrong: 0, last: null };
+      s.seen = 1;
+      s.box = 5;
+      s.easy = 1;
+      s.last = today;
+      s.due = CILIN.ui.addDays(today, 3650);
+      this.removeFromToday(key);
+      this.save();
+      return true;
+    },
+    unmarkSimple: function (word) {
+      const key = word.w || word, s = this.state.words[key];
+      if (!s || !s.easy) return false;
+      delete s.easy;
+      s.box = 2;
+      s.due = this.today();
+      this.save();
+      return true;
+    },
+    simpleList: function () {
+      const self = this;
+      return Object.keys(this.state.words).filter(function (k) { return self.state.words[k].easy && CILIN.wordMap[k]; })
+        .map(function (k) { return CILIN.wordMap[k]; });
+    },
 
     wordState: function (w) {
       const s = this.state.words[w];
@@ -208,6 +238,8 @@
       let s = this.state.words[w];
       const isNew = !s || !s.seen;
       if (!s) s = this.state.words[w] = { first: today, seen: 0, box: 1, due: today, right: 0, wrong: 0, last: null };
+      // 再次复习（含词卡「再复习一次」、手动加入今日后评分）即视为恢复
+      if (s.easy) delete s.easy;
       s.seen = (s.seen || 0) + 1;
       s.last = today;
       const day = this.touchDay();
@@ -251,6 +283,7 @@
     addToToday: function (w) {
       const key = w.w || w;
       if (!CILIN.wordMap[key]) return false;
+      if (this.state.words[key] && this.state.words[key].easy) this.unmarkSimple(w);
       const today = this.today();
       if (!this.state.todayQueue || this.state.todayQueue.date !== today) {
         this.state.todayQueue = { date: today, words: [] };
@@ -278,7 +311,7 @@
       const self = this;
       Object.keys(this.state.words).forEach(function (w) {
         const s = self.state.words[w];
-        if (s.seen && s.due && s.due <= today) list.push({ w: w, s: s });
+        if (s.seen && !s.easy && s.due && s.due <= today) list.push({ w: w, s: s });
       });
       // 遗忘预测：到期词不再只按到期日排，先按「最可能忘」排
       list.sort(function (a, b) {

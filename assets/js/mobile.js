@@ -335,7 +335,7 @@
   /* 记忆强度 / 遗忘预测：纯推算，不写存档、不升 state.v */
   function memoryOf(w) {
     var s = state.words[w.w || w];
-    if (!s || !s.seen) return null;
+    if (!s || !s.seen || s.easy) return null;
     var box = Math.min(5, Math.max(1, s.box || 1));
     var right = s.right || 0, wrong = s.wrong || 0;
     var acc = right + wrong ? right / (right + wrong) : 0.5;
@@ -395,6 +395,31 @@
     if (s === "cet6") return w.l === "cet6";
     return true;
   }
+  function isSimple(w) {
+    var key = w && w.w ? w.w : w, s = state.words[key];
+    return !!(s && s.easy);
+  }
+  function markSimple(w) {
+    var key = w.w || w, t = today(), s = state.words[key];
+    if (!s) s = state.words[key] = { first: t, seen: 0, box: 1, due: t, right: 0, wrong: 0, last: null };
+    s.seen = 1; s.box = 5; s.easy = 1; s.last = t;
+    s.due = addDays(t, 3650);
+    removeFromQueue(key);
+    save();
+    return true;
+  }
+  function unmarkSimple(w) {
+    var key = w.w || w, s = state.words[key];
+    if (!s || !s.easy) return false;
+    delete s.easy; s.box = 2; s.due = today();
+    save();
+    return true;
+  }
+  function simpleList() {
+    var out = [], k;
+    for (k in state.words) if (state.words.hasOwnProperty(k) && state.words[k].easy && IDX[k]) out.push(IDX[k]);
+    return out;
+  }
   function pickToday(n) {
     var t = today(), out = [], used = {}, i, w, s, k, due = [], risk = [], m;
     function byRisk(a, b) {
@@ -405,10 +430,11 @@
     for (k in state.shadow) if (state.shadow.hasOwnProperty(k) && IDX[k]) shadowKeys.push(k);
     shadowKeys.sort(byRisk);
     for (i = 0; i < shadowKeys.length && out.length < n; i++) {
-      if (!used[shadowKeys[i]]) { out.push(shadowKeys[i]); used[shadowKeys[i]] = 1; }
+      if (!isSimple(shadowKeys[i]) && !used[shadowKeys[i]]) { out.push(shadowKeys[i]); used[shadowKeys[i]] = 1; }
     }
     for (k in state.words) if (state.words.hasOwnProperty(k) && IDX[k]) {
       s = state.words[k];
+      if (s.easy) continue;
       if (s && s.seen && s.due && s.due <= t && !used[k]) due.push(k);
       else if (s && s.seen && s.due && s.due > t && !used[k]) {
         m = memoryOf(k);
@@ -453,6 +479,7 @@
     if (!w) return;
     var t = today(), key = w.w, s = state.words[key], isNew = !s || !s.seen;
     if (!s) s = state.words[key] = { first: t, seen: 0, box: 1, due: t, right: 0, wrong: 0, last: null };
+    if (s.easy) delete s.easy;
     s.seen = (s.seen || 0) + 1;
     s.last = t;
     var day = touchDay();
@@ -509,10 +536,10 @@
       txt("mCardIpa", "明天再来，林子一直在");
       $("mCardZh").hidden = true; $("mCardEx").hidden = true;
       txt("mTip", "想多学几个？点「再学一组」，或去「词林」搜词加入今日");
-      $("mKnow").disabled = true; $("mAgain").disabled = true;
-      return;
+    $("mKnow").disabled = true; $("mAgain").disabled = true; $("mSimple").disabled = true;
+    return;
     }
-    $("mKnow").disabled = false; $("mAgain").disabled = false;
+    $("mKnow").disabled = false; $("mAgain").disabled = false; $("mSimple").disabled = false;
     txt("mCount", "今日 " + done + " / " + q.total);
     txt("mCardWord", esc(w.w));
     txt("mCardIpa", w.p ? "/ " + esc(w.p) + " /" : "轻点卡片翻面看释义");
@@ -536,6 +563,13 @@
     $("mCardZh").hidden = !flipped;
     $("mCardEx").hidden = !flipped || !w.e;
     if (flipped) speak(w.w);
+  }
+  function gradeSimple() {
+    var w = currentWord();
+    if (!w) { toast("今天已经走完了"); return; }
+    markSimple(w);
+    toast("已标记「太简单」· " + w.w, "以后不用再见它");
+    renderToday();
   }
   function grade(ok) {
     var w = currentWord();
@@ -615,8 +649,10 @@
     if (s && s.seen) info.push("见过 " + s.seen + " 次 · 第 " + (s.box || 1) + " 阶 · 答对 " + (s.right || 0) + " / 答错 " + (s.wrong || 0));
     else info.push("还没学过");
     if (state.shadow[w.w]) info.push("在影子里");
+    if (isSimple(w.w)) info.push("已略过 · 不再复习");
     txt("mShState", info.join(" · "));
     $("mShState").hidden = false;
+    txt("mShSimple", isSimple(w.w) ? "恢复复习" : "太简单 · 不再复习");
     $("mShCustomBtns").hidden = !w.custom;
     $("mMask").hidden = false;
     $("mSheet").hidden = false;
@@ -794,11 +830,11 @@
   }
   function vocabPool(n) {
     var out = [], used = {}, k, i, w, t = today();
-    for (k in state.shadow) if (state.shadow.hasOwnProperty(k) && IDX[k] && IDX[k].z) {
+    for (k in state.shadow) if (state.shadow.hasOwnProperty(k) && IDX[k] && IDX[k].z && !isSimple(k)) {
       out.push(IDX[k]); used[k] = 1;
       if (out.length >= n) return out;
     }
-    for (k in state.words) if (state.words.hasOwnProperty(k) && IDX[k] && state.words[k].seen && state.words[k].due <= t && !used[k]) {
+    for (k in state.words) if (state.words.hasOwnProperty(k) && IDX[k] && state.words[k].seen && !state.words[k].easy && state.words[k].due <= t && !used[k]) {
       out.push(IDX[k]); used[k] = 1;
       if (out.length >= n) return out;
     }
@@ -1273,6 +1309,7 @@
     $("mName").value = state.profile.name || "";
     $("mRate").value = String(Number(state.settings.rate) || 0.9);
     txt("mRateVal", Number(state.settings.rate || 0.9).toFixed(2));
+    txt("mSimpleCount", simpleList().length + " 个 · 查看/恢复");
   }
   function renderMastery() {
     var counts = {}, seen = {}, i, m, w, unit;
@@ -1393,6 +1430,7 @@
     $("mCard").onclick = flipCard;
     $("mKnow").onclick = function () { grade(true); };
     $("mAgain").onclick = function () { grade(false); };
+    $("mSimple").onclick = gradeSimple;
     $("mSpeak").onclick = function () { var w = currentWord(); if (w) speak(w.w); else toast("今天已经走完了"); };
     $("mQuick").onclick = function () { openQuiz(buildVocab("mixed").slice(0, 3), { title: "今日一题", kind: "vocab" }); };
     $("mMore10").onclick = moreToday;
@@ -1509,6 +1547,16 @@
     $("mMask").onclick = closeSheet;
     $("mShClose").onclick = closeSheet;
     $("mShAdd").onclick = addToToday;
+    $("mShSimple").onclick = function () {
+      if (!sheetWord) return;
+      var w = sheetWord, was = isSimple(w.w);
+      if (was) unmarkSimple(w); else markSimple(w);
+      toast(was ? "已恢复复习 · " + w.w : "已标记「太简单」· " + w.w,
+        was ? "它会重新出现在到期复习里" : "以后不用再见它");
+      closeSheet();
+      if (window.__mCurrent === "today") renderToday();
+      if (window.__mCurrent === "mine") renderMe();
+    };
     $("mShSpeak").onclick = function () { if (sheetWord) speak(sheetWord.w); };
     $("mShEdit").onclick = function () { if (sheetWord) { closeSheet(); openEditor(sheetWord.w, ""); } };
     $("mShDel").onclick = deleteCustom;
@@ -1576,7 +1624,38 @@
     };
     $("mMethod").onclick = openMethod;
     $("mMethodClose").onclick = closeMethod;
+    $("mSimpleList").onclick = openSimpleList;
     $("mDesktop").onclick = function () { location.href = "index.html?desktop=1"; };
+  }
+
+  /* ---------- 已略过的词：查看 / 恢复 ---------- */
+  function openSimpleList() {
+    function paint() {
+      var list = simpleList(), html = "", i;
+      if (!list.length) html = '<div class="m-empty">还没有略过的词。在今日卡片或词卡里点「太简单 · 不再复习」。</div>';
+      else {
+        html = '<div class="m-block"><h3>已略过 · ' + list.length + " 个</h3>";
+        for (i = 0; i < list.length; i++) {
+          html += '<div class="m-journal"><b>' + esc(list[i].w) + "</b> · " + esc(list[i].z || "") +
+            '<button class="m-btn m-btn-sm" data-restore="' + esc(list[i].w) + '" style="float:right">恢复复习</button></div>';
+        }
+        html += "</div>";
+      }
+      txt("mQuizBody", html);
+      Array.prototype.forEach.call($("mQuiz").querySelectorAll("[data-restore]"), function (b) {
+        b.onclick = function () {
+          var k = b.getAttribute("data-restore");
+          if (unmarkSimple(k)) {
+            toast("已恢复复习 · " + k);
+            $("mQuizCount").textContent = simpleList().length + " 个";
+            paint();
+          }
+        };
+      });
+    }
+    $("mQuizTitle").textContent = "已略过的词";
+    $("mQuiz").hidden = false;
+    paint();
   }
 
   /* ---------- 方法讲义：按需加载桌面同一份数据，手机端只做折叠阅读 ---------- */

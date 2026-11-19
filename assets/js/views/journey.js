@@ -153,6 +153,8 @@
               <input type="range" id="rateRange" min="0.6" max="1.2" step="0.05" value="${settings.rate}"><span class="small faint" id="rateVal">${settings.rate.toFixed(2)}</span></div>
             <div class="setting-row"><div class="sr-label">外观<span>夜色 / 晨光</span></div>
               <button class="switch ${settings.theme === "light" ? "on" : ""}" id="themeSwitch" aria-label="切换明暗"></button></div>
+            <div class="setting-row"><div class="sr-label">已略过的词<span>标记「太简单」后不再进入复习</span></div>
+              <button class="btn btn-line btn-sm" data-simple-list>${st.simpleList().length} 个 · 查看/恢复</button></div>
           </div>
           <div class="mt16" style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-line btn-sm" data-export>${ui.icon("download", 14)} 导出进度</button>
@@ -206,6 +208,7 @@
       CILIN.reRender();
     };
     root.querySelector("[data-export]").onclick = exportBackup;
+    root.querySelector("[data-simple-list]").onclick = function () { openSimpleList(st); };
     const file = root.querySelector("#importFile");
     root.querySelector("[data-import]").onclick = function () { file.click(); };
     file.onchange = function () {
@@ -231,6 +234,32 @@
         setTimeout(function () { location.reload(); }, 500);
       });
     };
+  }
+
+  function openSimpleList(st) {
+    function paint() {
+      const list = st.simpleList();
+      const body = list.length
+        ? `<div class="word-list">${list.map(function (w) {
+            return `<div class="word-row" data-restore="${ui.attr(w.w)}">
+              <div class="wr-w">${ui.esc(w.w)}</div><div class="wr-mean">${ui.esc(w.zh || w.mean || "")}</div>
+              <div class="wr-right"><button class="btn btn-line btn-sm" data-restore-btn="${ui.attr(w.w)}">恢复复习</button></div>
+            </div>`;
+          }).join("")}</div>`
+        : ui.empty("leaf", "还没有略过的词", "在词卡或闪卡里点「太简单 · 一遍过」。");
+      ui.openSheet(`<div class="sheet-head"><div><div class="eyebrow">SKIPPED</div><h3>已略过的词 · ${list.length}</h3></div>
+        <button class="icon-btn" data-close aria-label="关闭">${ui.icon("close", 18)}</button></div>
+        <div class="sheet-body"><p class="small muted" style="margin-bottom:12px">这些词不会出现在到期复习、遗忘预测与阅读连续学里。想重新学时，点「恢复复习」。</p>${body}</div>`, { cls: "word-sheet" });
+      const ov = document.getElementById("overlay");
+      ov.querySelector("[data-close]").onclick = ui.closeSheet;
+      ov.querySelectorAll("[data-restore-btn]").forEach(function (b) {
+        b.onclick = function () {
+          const key = b.getAttribute("data-restore-btn");
+          if (st.unmarkSimple(key)) { ui.toast("已恢复复习 · " + key); CILIN.refreshChrome(); paint(); }
+        };
+      });
+    }
+    paint();
   }
 
   CILIN.views = CILIN.views || {};

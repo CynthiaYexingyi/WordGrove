@@ -345,40 +345,48 @@ def main():
     words = cleaned
     print(f"  cleaned malformed entries: dropped {len(DROP)}, renamed {len(RENAME)}")
 
-    # 匹配 book 例句
+    # 匹配 book 例句：原词精确命中优先，派生形式只作兜底。
+    # 否则 interest 会因为 43 词超限而退到 interesting，变成"字母排列"式误配。
     matched = 0
     for wi, word in enumerate(words):
         if wi % 500 == 0:
             print(f"  matching {wi}/{len(words)} ...", flush=True)
-        cand_forms = forms_of(word["w"], word["senses"])
         base = word["w"]
+        base_key = base.lower().strip("'’-")
+        derived = forms_of(base, word["senses"]) - {base}
+        if len(base_key) <= 2:      # I / a 这类短词绝不靠派生或子串凑例句
+            derived = set()
         best, best_score = None, -1
-        for form in cand_forms:
-            for si in index.get(form, [])[:80]:
-                rec = sentences[si]
-                toks = sent_tokens[si]
-                wc = len(toks)
-                if not (6 <= wc <= 40):
-                    continue
-                if re.search(r"_{3,}|\.{3,}", rec["text"]):
-                    continue
-                score = 0.0
-                if form == base:
-                    score += 2.4
-                elif base in toks:
-                    score += 1.2
-                else:
-                    score -= 0.8          # 派生形式（如 -ly）优先级低
-                if 8 <= wc <= 28:
-                    score += 0.6
-                if rec["text"].lower().startswith(base):
-                    score += 0.3
-                if form != base and form in IRREGULAR.get(base, []):
-                    score += 0.5
-                # 优先中等长度、避开被动/引用短句
-                score -= abs(wc - 18) * 0.02
-                if score > best_score:
-                    best, best_score = si, score
+
+        def consider(forms, exact_pass, max_wc):
+            nonlocal best, best_score
+            for form in forms:
+                for si in index.get(form, [])[:80]:
+                    rec = sentences[si]
+                    toks = sent_tokens[si]
+                    wc = len(toks)
+                    if not (6 <= wc <= max_wc):
+                        continue
+                    if re.search(r"_{3,}|\.{3,}", rec["text"]):
+                        continue
+                    if exact_pass and base_key not in toks:
+                        continue
+                    score = 0.0
+                    if 8 <= wc <= 28:
+                        score += 0.6
+                    if rec["text"].lower().startswith(base):
+                        score += 0.3
+                    if not exact_pass:
+                        score -= 0.8
+                        if form in IRREGULAR.get(base_key, []):
+                            score += 0.5
+                    score -= abs(wc - 18) * 0.02
+                    if score > best_score:
+                        best, best_score = si, score
+
+        consider({base}, True, 60)      # 精确原词可略长
+        if best is None:
+            consider(derived, False, 40)  # 实在没有才用屈折/派生形式
         if best is not None:
             rec = sentences[best]
             word["ex"] = {"en": rec["text"], "src": rec["src"], "textId": rec["textId"], "unit": rec["unit"]}

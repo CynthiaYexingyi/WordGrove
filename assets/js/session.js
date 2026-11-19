@@ -39,14 +39,14 @@
     opts = opts || {};
     const queue = words.slice();
     if (!queue.length) { ui.toast("这里没有需要学的词"); return; }
-    let idx = 0, revealed = false, newCount = 0, revCount = 0, xp = 0, again = 0;
+    let idx = 0, revealed = false, newCount = 0, revCount = 0, xp = 0, again = 0, simpleCount = 0;
     const stat = { new: 0, review: 0, xp: 0 };
     const title = opts.title || "今日 · 十词";
     let h = null;
 
     function cardHTML(w) {
       const st = store().stateOf(w.w);
-      const statePill = st && st.seen ? `<span class="pill moss">复习</span>` : `<span class="pill gold">新词</span>`;
+      const statePill = st && st.simple ? `<span class="pill gold">已略过</span>` : st && st.seen ? `<span class="pill moss">复习</span>` : `<span class="pill gold">新词</span>`;
       const syn = (w.syn && w.syn.length) ? `<div class="fc-syn"><span class="fc-syn-label">同义</span>${w.syn.map(function (x) { return `<span>${ui.esc(x)}</span>`; }).join("")}</div>` : "";
       const ex = w.ex ? `<div class="ex">
           <div class="ex-en">${ui.esc(w.ex.en)} ${ui.audioBtn(w.ex.en, { cls: "ex-audio" })}</div>
@@ -89,6 +89,9 @@
           <button class="q1" data-q="1">模糊<span>再看一次</span></button>
           <button class="q2" data-q="2">记得<span>进入下一轮</span></button>
         </div>
+        <div style="text-align:center;margin-top:10px" id="simpleRow" hidden>
+          <button class="btn btn-ghost btn-sm" data-simple>${store().isSimple(w.w) ? "恢复复习" : "太简单 · 一遍过"}</button>
+        </div>
       </div>`;
       const ov = document.getElementById("overlay");
       ov.classList.add("overlay-session"); ui.activateOverlay();
@@ -103,12 +106,24 @@
         fc.classList.toggle("revealed", revealed);
         revealBtn.textContent = revealed ? "收起释义" : "显示释义";
         srs.style.display = revealed ? "grid" : "none";
+        const sr = ov.querySelector("#simpleRow");
+        if (sr) sr.hidden = !revealed;
       };
       revealBtn.onclick = doReveal;
       fc.querySelector(".fc-word").onclick = doReveal;
       ov.querySelectorAll("[data-q]").forEach(function (b) {
         b.onclick = function () { rate(Number(b.getAttribute("data-q"))); };
       });
+      const sb = ov.querySelector("[data-simple]");
+      if (sb) sb.onclick = function () {
+        const w2 = queue[idx], was = store().isSimple(w2.w);
+        if (was) store().unmarkSimple(w2); else store().markSimple(w2);
+        ui.toast(was ? "已恢复复习 · " + w2.w : "已标记「太简单」· " + w2.w,
+          was ? "它会重新出现在到期复习里" : "以后不用再见它");
+        simpleCount += was ? -1 : 1;
+        idx++;
+        render();
+      };
       h.ov._keyHandler = function (e) {
         if (e.key === " " || e.key === "Enter") { e.preventDefault(); doReveal(); }
         else if (revealed && ["1", "2", "3"].indexOf(e.key) >= 0) { e.preventDefault(); rate(Number(e.key) - 1); }
@@ -137,6 +152,7 @@
           <div class="st"><b>${stat.new}</b><span>新词</span></div>
           <div class="st"><b>${stat.review}</b><span>复习</span></div>
           <div class="st"><b>+${stat.xp}</b><span>经验</span></div>
+          <div class="st"><b>${simpleCount}</b><span>一遍过</span></div>
           <div class="st"><b>${queue.length}</b><span>本组</span></div>
         </div>
         ${goalDone ? `<p class="gold mt16">${ui.icon("spark", 14)} 今日目标完成</p>` : ""}

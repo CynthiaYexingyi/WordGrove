@@ -104,8 +104,12 @@
   function openWord(w, opts) {
     if (!w) return;
     opts = opts || {};
+    const nav = opts.nav || null;
+    const hasNext = !!(nav && nav.list && nav.idx + 1 < nav.list.length);
+    function goNext() { if (hasNext && CILIN.views.read && CILIN.views.read.navNext) CILIN.views.read.navNext(nav); }
     const st = store().stateOf(w.w);
     const learned = store().isSeen(w.w);
+    const simple = store().isSimple(w.w);
     const pill = ui.wordState(w);
     const enDef = w.enDef ? `<div class="word-sec">
         <div class="ws-label">英文释义</div>
@@ -160,34 +164,53 @@
         ${w.note ? `<div class="word-sec"><div class="ws-label">用法</div><div class="ws-note">${ui.esc(w.note)}</div></div>` : ""}
       </div>
       <div class="sheet-foot">
+        ${nav ? `<button class="btn ${hasNext ? "btn-line" : "btn-ghost"}" data-next ${hasNext ? "" : 'disabled style="opacity:.45;cursor:not-allowed"'} title="按文章顺序跳到下一个必学词">${hasNext ? "下一个必学词 " + ui.icon("arrow", 14) : "已是本篇最后一个"}</button>` : ""}
         <button class="btn btn-ghost" data-today>${ui.icon("spark", 14)} 加入今日</button>
         <button class="btn btn-ghost" data-shadow>${ui.icon("shadow", 14)} 加入影子</button>
+        <button class="btn ${simple ? "btn-line" : "btn-ghost"}" data-simple>${simple ? "恢复复习" : "太简单 · 不再复习"}</button>
         <button class="btn ${learned ? "btn-line" : "btn-primary"}" data-know>${learned ? "再复习一次" : "已认识，标记"}</button>
         ${w.custom ? '<button class="btn btn-line" data-edit-custom>编辑我的词</button>' : ""}
         ${w.custom ? '<button class="btn btn-ghost" data-del-custom>移出我的词</button>' : ""}
       </div>`, { cls: "word-sheet" });
     const ov = document.getElementById("overlay");
     ov.querySelector("[data-close]").onclick = ui.closeSheet;
+    const nextBtn = ov.querySelector("[data-next]");
+    if (nextBtn && hasNext) nextBtn.onclick = goNext;
     ov.querySelector("[data-know]").onclick = function () {
       const stayY = window.scrollY;
       store().review(w, 2);
-      ui.toast("已标记 · " + w.w, "它会在下一次更远的地方等你");
+      ui.toast("已标记 · " + w.w, hasNext ? "接着看下一个必学词" : "它会在下一次更远的地方等你");
       ui.closeSheet();
       CILIN.refreshChrome();
       CILIN.reRender();
-      requestAnimationFrame(function () { window.scrollTo(0, stayY); });
+      if (hasNext) {
+        setTimeout(goNext, 60);
+      } else {
+        requestAnimationFrame(function () { window.scrollTo(0, stayY); });
+      }
     };
     ov.querySelector("[data-today]").onclick = function () {
       const ok = store().addToToday(w);
-      ui.toast(ok ? "已加入今日" : "今天已经排上它了", ok ? "今日计划会先见到它" : "");
+      ui.toast(ok ? "已加入今日" : "今天已经排上它了", hasNext ? "接着看下一个必学词" : (ok ? "今日计划会先见到它" : ""));
       ui.closeSheet();
       CILIN.refreshChrome();
+      if (hasNext) setTimeout(goNext, 60);
     };
     ov.querySelector("[data-shadow]").onclick = function () {
       store().addShadow(w.w, "收藏");
       ui.toast("已放进影子", "等你回头照见它");
       ui.closeSheet();
       CILIN.refreshChrome();
+    };
+    ov.querySelector("[data-simple]").onclick = function () {
+      const was = store().isSimple(w.w);
+      if (was) store().unmarkSimple(w); else store().markSimple(w);
+      ui.toast(was ? "已恢复复习 · " + w.w : "已标记「太简单」· " + w.w,
+        was ? "它会重新出现在到期复习里" : "以后不用再见它，随时可以恢复");
+      ui.closeSheet();
+      CILIN.refreshChrome();
+      CILIN.reRender();
+      if (!was && hasNext) setTimeout(goNext, 60);
     };
     const edit = ov.querySelector("[data-edit-custom]");
     if (edit) edit.onclick = function () {

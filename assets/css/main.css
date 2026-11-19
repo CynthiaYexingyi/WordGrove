@@ -51,8 +51,8 @@
   --panel-3: #efe9da;
   --ink: #222a22;
   --ink-2: #3b453b;
-  --muted: #6c7669;
-  --faint: #9aa092;
+  --muted: #5a6558;
+  --faint: #6b7568;
   --line: rgba(34, 42, 34, .14);
   --line-soft: rgba(34, 42, 34, .07);
   --gold: #8a6a2e;
@@ -752,6 +752,7 @@ p { margin: 0; }
 .rd-token.is-learned { color: var(--muted); }
 .rd-token.rd-unknown { color: var(--ink); }
 .rd-token.rd-unknown:hover { color: var(--gold-2); }
+.rd-token.rd-nav-focus { background: var(--glow); border-radius: 4px; box-shadow: 0 0 0 3px var(--glow); color: var(--gold-2); }
 .reader-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 32px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
 .reader-foot .btn { max-width: 44%; overflow: hidden; text-overflow: ellipsis; }
 

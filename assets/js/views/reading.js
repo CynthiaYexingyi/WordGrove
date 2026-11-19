@@ -49,6 +49,48 @@
     return (hit || paragraph).trim();
   }
 
+  /* 阅读连续学：正文中所有「可点开的必学词」，按出现顺序。只认词库里有的 token，
+     跳过 rd-unknown（那些点开是自定义词表单，不是词卡）。 */
+  function studyableTokens(root) {
+    return Array.from(root.querySelectorAll("#readerBody .rd-token[data-rdw]"))
+      .filter(function (b) {
+        const key = b.getAttribute("data-rdw");
+        return !!CILIN.wordMap[key] && !store().isSimple(key);
+      });
+  }
+
+  /* 跳到 nav 里的下一个必学词：滚动+高亮正文里的那个词，再弹出它的词卡。
+     reRender 会重建 DOM 并重置滚动，故这里按索引现查 DOM、在下一帧定位。 */
+  function navNext(nav) {
+    if (!nav || !nav.list || !nav.list.length) return;
+    const root = document.getElementById("app");
+    const toks = root ? studyableTokens(root) : [];
+    const keys = toks.map(function (b) { return b.getAttribute("data-rdw"); });
+    // 当前词可能因「太简单」被移出序列：用 key 在当前序列里重新定位，避免跳错
+    const curIdx = keys.indexOf(nav.list[nav.idx]);
+    let ni = curIdx >= 0 ? curIdx + 1 : -1;
+    if (ni < 0) {
+      let k = nav.idx + 1;
+      while (k < nav.list.length && keys.indexOf(nav.list[k]) < 0) k++;
+      ni = keys.indexOf(nav.list[k]);
+    }
+    if (ni < 0 || ni >= keys.length) return;
+    const w = CILIN.wordMap[keys[ni]];
+    if (!w) return;
+    const target = toks[ni];
+    if (target) {
+      try { target.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+      target.classList.add("rd-nav-focus");
+      setTimeout(function () { target.classList.remove("rd-nav-focus"); }, 1800);
+    }
+    const para = target ? target.closest("p") : null;
+    const ctx = para ? sentenceOf(para.getAttribute("data-text") || para.textContent, keys[ni]) : "";
+    const nextNav = { list: keys, idx: ni, label: nav.label };
+    setTimeout(function () {
+      CILIN.views.grove.openWord(w, { context: ctx, sourceLabel: nav.label, nav: nextNav });
+    }, 240);
+  }
+
   function openUnknown(raw, context, label) {
     ui.openSheet(`<div class="sheet-head"><div><div class="eyebrow">WORD</div><h3>词卡</h3></div>
       <button class="icon-btn" data-close aria-label="关闭">${ui.icon("close", 18)}</button></div>
@@ -221,9 +263,13 @@
         const w = btn.getAttribute("data-rdw");
         if (w && CILIN.wordMap[w]) {
           if (onWord) onWord(w);
+          const rootEl = document.getElementById("app");
+          const seq = rootEl ? studyableTokens(rootEl) : [];
+          const myIdx = seq.findIndex(function (b) { return b === btn; });
           CILIN.views.grove.openWord(CILIN.wordMap[w], {
             context: ctx,
-            sourceLabel: sourceLabel(unit, t)
+            sourceLabel: sourceLabel(unit, t),
+            nav: myIdx >= 0 ? { list: seq.map(function (b) { return b.getAttribute("data-rdw"); }), idx: myIdx, label: sourceLabel(unit, t) } : null
           });
         } else {
           openUnknown(raw, ctx, sourceLabel(unit, t));
@@ -426,5 +472,5 @@
   }
 
   CILIN.views = CILIN.views || {};
-  CILIN.views.read = { render: render, openCustomForm: openCustomForm, editCustomWord: editCustomWord };
+  CILIN.views.read = { render: render, openCustomForm: openCustomForm, editCustomWord: editCustomWord, navNext: navNext };
 })();

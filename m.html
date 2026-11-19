@@ -7,7 +7,7 @@
 <title>词林 · 手机版</title>
 <style>
 :root{
-  --bg:#f7f4ec; --card:#fffdf8; --ink:#24302a; --ink2:#4d5b52; --muted:#8a938a;
+  --bg:#f7f4ec; --card:#fffdf8; --ink:#24302a; --ink2:#4d5b52; --muted:#6b756b;
   --line:#e6e0d2; --accent:#2f6b52; --accent-soft:#e3efe7; --gold:#a97b3c;
   --danger:#b4553f; --shadow:0 2px 14px rgba(40,50,40,.07);
 }
@@ -209,6 +209,7 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
       <button class="m-btn m-btn-main" id="mKnow" type="button">认识了</button>
     </div>
     <div class="m-quick">
+      <button class="m-btn m-btn-sm" id="mSimple" type="button">✓ 太简单 · 不再复习</button>
       <button class="m-btn m-btn-sm" id="mSpeak" type="button">🔊 发音</button>
       <button class="m-btn m-btn-sm" id="mQuick" type="button">✎ 今日一题</button>
       <button class="m-btn m-btn-sm" id="mMore10" type="button">＋ 再学一组</button>
@@ -311,6 +312,7 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
       <div class="m-link" id="mExport">导出进度 <em>存成 JSON 文件</em></div>
       <div class="m-link" id="mImport">导入进度 <em>从 JSON 恢复</em></div>
       <div class="m-link" id="mReset">重置进度 <em>先导出备份</em></div>
+      <div class="m-link" id="mSimpleList">已略过的词 <em id="mSimpleCount">0 个 · 查看/恢复</em></div>
       <div class="m-link" id="mMethod">方法讲义 <em>10 讲 · 可自学</em></div>
       <div class="m-link" id="mDesktop">使用桌面版 <em>完整功能</em></div>
       <p class="m-foot" id="mBackupState" style="text-align:left;margin:12px 0 0;font-size:12px"></p>
@@ -342,6 +344,9 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
     <button class="m-btn" id="mShClose" type="button">关闭</button>
     <button class="m-btn" id="mShSpeak" type="button">发音</button>
     <button class="m-btn m-btn-main" id="mShAdd" type="button">加入今日</button>
+  </div>
+  <div class="m-sheet-btns">
+    <button class="m-btn m-btn-sm" id="mShSimple" type="button">太简单 · 不再复习</button>
   </div>
   <div class="m-sheet-btns" id="mShCustomBtns" hidden>
     <button class="m-btn m-btn-sm" id="mShEdit" type="button">编辑这个词</button>

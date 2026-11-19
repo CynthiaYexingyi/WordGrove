@@ -9,7 +9,9 @@
     const q = (plan.queue || plan.due.concat(plan.fresh)).slice();
     if (q.length) return q;
     // 今日目标已完成 / 没有到期词时，"再学一组"给一组轻复习
-    return CILIN.ui.sample(CILIN.studyPool ? CILIN.studyPool() : CILIN.coreWords, 10, Date.now());
+    return CILIN.ui.sample((CILIN.studyPool ? CILIN.studyPool() : CILIN.coreWords).filter(function (w) {
+      return !CILIN.store.isSimple(w.w);
+    }), 10, Date.now());
   }
 
   function render(root) {
