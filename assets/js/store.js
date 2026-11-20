@@ -19,6 +19,7 @@
       sessions: [],
       journal: [],
       customWords: {},
+      edits: {},
       achievements: {},
       stats: { integrated: 0, dailyGoals: 0, translated: 0, written: 0, listened: 0, quizzes: 0 },
       writing: {}
@@ -93,6 +94,7 @@
           this.state.reading = this.state.reading || {};
           this.state.todayQueue = this.state.todayQueue || { date: "", words: [] };
           this.state.customWords = this.state.customWords || {};
+          this.state.edits = this.state.edits || {};
           this.state.writing = this.state.writing || {};
           this.state.journal = this.state.journal || [];
           this.state.sessions = this.state.sessions || [];
@@ -608,6 +610,32 @@
       delete this.state.customWords[k];
       this.save();
       return true;
+    },
+
+    /* ---------- 个人编辑覆盖层（大纲词也可个性化；不升 state.v） ---------- */
+    editOf: function (w) {
+      const k = String(w || "").trim().toLowerCase();
+      return (this.state.edits && this.state.edits[k]) || null;
+    },
+    hasEdit: function (w) { return !!this.editOf(w); },
+    saveEdit: function (w, patch) {
+      const k = String(w || "").trim().toLowerCase();
+      if (!k) return false;
+      if (!this.state.edits) this.state.edits = {};
+      this.state.edits[k] = Object.assign({}, this.state.edits[k] || {}, patch, { updatedAt: Date.now() });
+      this.save();
+      return true;
+    },
+    removeEdit: function (w) {
+      const k = String(w || "").trim().toLowerCase();
+      if (!this.state.edits || !this.state.edits[k]) return false;
+      delete this.state.edits[k];
+      this.save();
+      return true;
+    },
+    editList: function () {
+      const m = this.state.edits || {};
+      return Object.keys(m).map(function (k) { return { w: k, patch: m[k] }; });
     },
 
     /* ---------- 导入导出 ---------- */

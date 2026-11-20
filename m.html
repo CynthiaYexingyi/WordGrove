@@ -337,6 +337,7 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
   <div class="ipa" id="mShIpa"></div>
   <div class="def" id="mShDef"></div>
   <div class="ex" id="mShEx" hidden></div>
+  <div class="ex" id="mShColloc" hidden></div>
   <div class="src" id="mShSrc" hidden></div>
   <div class="ex" id="mShCtx" hidden></div>
   <div class="src" id="mShState" hidden></div>
@@ -352,6 +353,10 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
     <button class="m-btn m-btn-sm" id="mShEdit" type="button">编辑这个词</button>
     <button class="m-btn m-btn-sm" id="mShDel" type="button">删除我的词</button>
   </div>
+  <div class="m-sheet-btns" id="mShEditBtns" hidden>
+    <button class="m-btn m-btn-sm" id="mShEditCard" type="button">编辑词卡</button>
+    <button class="m-btn m-btn-sm" id="mShRevertCard" type="button" hidden>还原官方版</button>
+  </div>
 </div>
 
 <div class="m-mask" id="mEditMask" hidden></div>
@@ -366,6 +371,7 @@ html[data-m-theme="dark"] .m-heat i.l1{background:#2f4d3a}html[data-m-theme="dar
   <div style="margin-top:10px"><input class="m-input" id="mEdMnemonic" placeholder="助记（可空）"></div>
   <div style="margin-top:10px"><input class="m-input" id="mEdEx" placeholder="自编例句英文（可空）"></div>
   <div style="margin-top:10px"><input class="m-input" id="mEdExZh" placeholder="例句中文（可空）"></div>
+  <div style="margin-top:10px"><textarea class="m-input" id="mEdColloc" rows="3" placeholder="固定搭配（可空，一行一条）"></textarea></div>
   <div class="m-sheet-btns">
     <button class="m-btn" id="mEdClose" type="button">取消</button>
     <button class="m-btn m-btn-main" id="mEdSave" type="button">保存</button>

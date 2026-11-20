@@ -125,6 +125,38 @@
     });
   };
 
+  // 个人编辑覆盖层：把存档里的改动叠加到词卡运行时对象。
+  // 原始字段存到 w.__orig（仅内存，不写存档），便于随时还原官方数据。
+  const EDIT_FIELDS = ["senses", "mean", "zh", "ipa", "enDef", "ex", "exZh", "colloc", "syn", "mnemonic", "note"];
+  CILIN.applyEdits = function () {
+    const map = (CILIN.store && CILIN.store.state && CILIN.store.state.edits) || {};
+    Object.keys(map).forEach(function (k) {
+      const w = CILIN.wordMap[k];
+      const patch = map[k];
+      if (!w || !patch) return;
+      if (!w.__orig) {
+        w.__orig = {};
+        EDIT_FIELDS.forEach(function (f) { if (f in w) w.__orig[f] = w[f]; });
+      }
+      EDIT_FIELDS.forEach(function (f) {
+        if (f in patch) {
+          w[f] = (f === "ex" && patch[f] && typeof patch[f].en === "string")
+            ? Object.assign({}, patch[f]) : patch[f];
+        }
+      });
+      w.edited = true;
+    });
+  };
+  CILIN.revertEdit = function (key) {
+    const w = CILIN.wordMap[String(key || "").toLowerCase()];
+    if (!w || !w.__orig) return false;
+    Object.keys(w.__orig).forEach(function (f) { w[f] = w.__orig[f]; });
+    delete w.__orig;
+    delete w.edited;
+    return true;
+  };
+  CILIN.EDIT_FIELDS = EDIT_FIELDS;
+
   CILIN.registerCustomWord = function (w) {
     if (!w) return null;
     const key = String(w.w || "").trim().toLowerCase();
@@ -253,6 +285,7 @@
     buildIndexes();
     CILIN.store.init();
     CILIN.mergeCustomWords();
+    CILIN.applyEdits();
     buildWordForms();
     scanTextWords();
     CILIN.speech.init();

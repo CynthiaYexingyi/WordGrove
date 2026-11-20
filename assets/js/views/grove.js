@@ -152,6 +152,7 @@
             ${CILIN.levelBadge(w)}
             ${st && st.due ? `<span class="pill">下次 ${ui.fmtDateShort(st.due)}</span>` : ""}
             ${w.hf ? '<span class="pill gold">高频</span>' : ""}
+            ${w.edited ? '<span class="pill moss">我的版本</span>' : ""}
           </div>
         </div>
         ${context}
@@ -169,7 +170,8 @@
         <button class="btn btn-ghost" data-shadow>${ui.icon("shadow", 14)} 加入影子</button>
         <button class="btn ${simple ? "btn-line" : "btn-ghost"}" data-simple>${simple ? "恢复复习" : "太简单 · 不再复习"}</button>
         <button class="btn ${learned ? "btn-line" : "btn-primary"}" data-know>${learned ? "再复习一次" : "已认识，标记"}</button>
-        ${w.custom ? '<button class="btn btn-line" data-edit-custom>编辑我的词</button>' : ""}
+        ${w.custom ? '<button class="btn btn-line" data-edit-custom>编辑我的词</button>' : '<button class="btn btn-line" data-edit-card>编辑词卡</button>'}
+        ${!w.custom && w.edited ? '<button class="btn btn-ghost" data-revert-card>还原官方版</button>' : ""}
         ${w.custom ? '<button class="btn btn-ghost" data-del-custom>移出我的词</button>' : ""}
       </div>`, { cls: "word-sheet" });
     const ov = document.getElementById("overlay");
@@ -215,6 +217,20 @@
     const edit = ov.querySelector("[data-edit-custom]");
     if (edit) edit.onclick = function () {
       if (CILIN.views.read && CILIN.views.read.editCustomWord) CILIN.views.read.editCustomWord(w);
+    };
+    const editCard = ov.querySelector("[data-edit-card]");
+    if (editCard) editCard.onclick = function () {
+      if (CILIN.views.read && CILIN.views.read.editWordOverlay) CILIN.views.read.editWordOverlay(w);
+    };
+    const revertCard = ov.querySelector("[data-revert-card]");
+    if (revertCard) revertCard.onclick = function () {
+      if (!window.confirm("把「" + w.w + "」还原成官方版本？你的修改会被删除。")) return;
+      store().removeEdit(w.w);
+      CILIN.revertEdit(w.w);
+      ui.closeSheet();
+      ui.toast("已还原官方版", "这张词卡恢复成词库原样");
+      CILIN.reRender();
+      setTimeout(function () { CILIN.views.grove.openWord(CILIN.wordMap[w.w]); }, 180);
     };
     const del = ov.querySelector("[data-del-custom]");
     if (del) del.onclick = function () {

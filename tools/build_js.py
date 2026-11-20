@@ -146,6 +146,8 @@ def main():
     lex, lfiles = merge_lex()
     syn, synfiles = merge_syn()
     extra_ex, exfiles = merge_examples()
+    # 高频词搭配补丁：独立于 enrich 批次，避免改动原始撰稿文件
+    colloc_extra = load_json(os.path.join(BUILD, "colloc_extra.json"), {})
     extra_articles = load_json(os.path.join(BUILD, "articles_extra.json"), [])
     if not extra_articles:
         extra_articles = load_json(os.path.join(BUILD, "articles_fallback.json"), [])
@@ -179,6 +181,8 @@ def main():
             w["zh"] = rec2["zh"]
             w["mnemonic"] = rec2["mnemonic"]
         w["syn"] = syn.get(w["w"], [])
+        if not w.get("colloc") and w["w"] in colloc_extra:
+            w["colloc"] = colloc_extra[w["w"]]
         if not w.get("ex") and w["w"] in extra_ex:
             w["ex"] = {"en": extra_ex[w["w"]]["en"], "src": "自写例句"}
             w["exZh"] = extra_ex[w["w"]]["zh"]

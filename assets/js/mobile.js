@@ -108,7 +108,7 @@
       profile: { xp: 0, streak: 0, longestStreak: 0, lastStudyDay: null, bestCombo: 0, combo: 0, mood: "", name: "" },
       words: {}, shadow: {}, days: {}, reading: {},
       todayQueue: { date: "", words: [] },
-      sessions: [], journal: [], customWords: {}, achievements: {},
+      sessions: [], journal: [], customWords: {}, edits: {}, achievements: {},
       stats: { integrated: 0, dailyGoals: 0, translated: 0, written: 0, listened: 0, quizzes: 0 }
     };
   }
@@ -241,7 +241,7 @@
     return {
       w: c.w, z: zh || "（未填释义）", p: c.ipa || "", l: "custom",
       e: own.en || ex.en || "", x: own.zh || c.exZh || "",
-      s: ex.src || "我的词", custom: true
+      k: c.colloc || [], s: ex.src || "我的词", custom: true
     };
   }
   function mergeCustom() {
@@ -255,19 +255,61 @@
       if (!IDX[slim.w] || IDX[slim.w].custom) IDX[slim.w] = slim;
     }
   }
+  // 个人编辑覆盖层：桌面/手机共用存档里的规范字段（senses/ex/exZh/colloc...），
+  // 这里映射成手机 slim 结构（z/e/x/k）叠加到运行时词卡；原值存 __orig 便于还原。
+  function patchSlim(w, patch) {
+    if (!w || !patch) return;
+    if (!w.__orig) {
+      w.__orig = {};
+      ["z", "p", "e", "x", "k", "s"].forEach(function (f) { if (f in w) w.__orig[f] = w[f]; });
+    }
+    if (patch.senses && patch.senses.length) {
+      var parts = [];
+      for (var i = 0; i < patch.senses.length; i++) {
+        var sn = patch.senses[i] || {};
+        parts.push(((sn.pos ? sn.pos + " " : "") + (sn.def || "")).replace(/^\s+|\s+$/g, ""));
+      }
+      w.z = parts.join("；") || w.z;
+    } else if (patch.mean || patch.zh) w.z = patch.mean || patch.zh;
+    if (patch.ipa != null) w.p = patch.ipa;
+    if (patch.ex && typeof patch.ex.en === "string") { w.e = patch.ex.en; if (patch.ex.src) w.s = patch.ex.src; }
+    if (patch.exZh != null) w.x = patch.exZh;
+    if (patch.colloc != null) w.k = patch.colloc;
+    w.edited = true;
+  }
+  function applyEdits() {
+    var map = state.edits || {}, k;
+    for (k in map) if (map.hasOwnProperty(k) && map[k]) patchSlim(IDX[k], map[k]);
+  }
+  function revertEdit(key) {
+    var w = IDX[String(key || "").toLowerCase()];
+    if (!w || !w.__orig) return false;
+    Object.keys(w.__orig).forEach(function (f) { w[f] = w.__orig[f]; });
+    delete w.__orig; delete w.edited;
+    return true;
+  }
   function allWords() { return WORDS.concat(CUSTOM); }
-  function openEditor(word, ctx) {
+  var editingOverlay = false;
+  function openEditor(word, ctx, overlay) {
     editKey = String(word || "").trim().toLowerCase();
     editCtx = ctx || "";
-    var c = (state.customWords || {})[editKey] || null;
-    txt("mEdTitle", c ? "编辑我的词" : "收进我的词");
+    editingOverlay = !!overlay;
+    var c = editingOverlay ? ((state.edits || {})[editKey] || null) : ((state.customWords || {})[editKey] || null);
+    var live = IDX[editKey] || {};
+    txt("mEdTitle", editingOverlay ? "编辑词卡" : (c ? "编辑我的词" : "收进我的词"));
     $("mEdWord").value = editKey;
-    $("mEdPos").value = c ? ((c.senses && c.senses[0] && c.senses[0].pos) || c.pos || "") : "";
-    $("mEdDef").value = c ? ((c.senses && c.senses[0] && c.senses[0].def) || c.zh || "") : "";
+    $("mEdWord").disabled = editingOverlay;
+    var pos = c && c.senses && c.senses[0] ? (c.senses[0].pos || "") : "";
+    var def = c && c.senses && c.senses[0] ? (c.senses[0].def || "") : "";
+    if (editingOverlay && !c) { pos = ""; def = live.z || ""; }
+    $("mEdPos").value = pos;
+    $("mEdDef").value = def;
     $("mEdMnemonic").value = c ? (c.mnemonic || "") : "";
     var own = c ? (c.ownEx || {}) : {};
-    $("mEdEx").value = own.en || "";
-    $("mEdExZh").value = own.zh || "";
+    $("mEdEx").value = editingOverlay ? ((c && c.ex && c.ex.en) || live.e || "") : (own.en || "");
+    $("mEdExZh").value = editingOverlay ? ((c && c.exZh) || live.x || "") : (own.zh || "");
+    var col = c && c.colloc ? c.colloc : (editingOverlay ? live.k : null);
+    $("mEdColloc").value = col && col.length ? col.join("\n") : "";
     $("mEditMask").hidden = false;
     $("mEditor").hidden = false;
   }
@@ -275,13 +317,31 @@
   function saveEditor() {
     var key = String($("mEdWord").value || "").trim().toLowerCase();
     if (!/^[a-z][a-z'\-]{0,40}$/.test(key)) { toast("请填一个英文单词"); return; }
-    if (!state.customWords) state.customWords = {};
-    if (IDX[key] && !IDX[key].custom && !state.customWords[key]) { toast("大纲里已有这个词，不用再收"); return; }
     var pos = String($("mEdPos").value || "").trim();
     var def = String($("mEdDef").value || "").trim();
     if (!def) { toast("写一句中文释义吧"); return; }
     var en = String($("mEdEx").value || "").trim();
     var zh = String($("mEdExZh").value || "").trim();
+    var colloc = String($("mEdColloc").value || "").split("\n").map(function (x) { return x.replace(/^\s+|\s+$/g, ""); }).filter(Boolean);
+    if (editingOverlay) {
+      if (!state.edits) state.edits = {};
+      var patch = {
+        senses: [{ pos: pos, def: def }],
+        mean: (pos ? pos + " " : "") + def,
+        ex: { en: en, src: "我的修改" }, exZh: zh,
+        colloc: colloc, mnemonic: String($("mEdMnemonic").value || "").trim(),
+        updatedAt: Date.now()
+      };
+      state.edits[key] = patch;
+      save();
+      patchSlim(IDX[key], patch);
+      closeEditor();
+      toast("已保存到这张词卡");
+      buildList(); renderList();
+      return;
+    }
+    if (!state.customWords) state.customWords = {};
+    if (IDX[key] && !IDX[key].custom && !state.customWords[key]) { toast("大纲里已有这个词，可点词卡里的「编辑词卡」"); return; }
     var old = state.customWords[key] || {};
     state.customWords[key] = {
       w: key, level: "custom", custom: true,
@@ -290,6 +350,7 @@
       pos: pos,
       mnemonic: String($("mEdMnemonic").value || "").trim(),
       ownEx: { en: en, zh: zh },
+      colloc: colloc,
       syn: old.syn || [],
       ex: old.ex || (editCtx ? { en: editCtx, src: readLabel || "课文" } : null),
       exZh: old.exZh || "",
@@ -632,11 +693,14 @@
     sheetWord = w;
     txt("mShWord", esc(w.w));
     txt("mShIpa", w.p ? "/ " + esc(w.p) + " /" : "");
-    txt("mShDef", esc(w.z || "（暂无释义）"));
+    txt("mShDef", esc(w.z || "（暂无释义）") + (w.edited ? " <span style='color:var(--muted);font-size:11px'>· 我的版本</span>" : ""));
     if (w.e) {
       txt("mShEx", esc(w.e) + (w.x ? "<br><span style='color:var(--muted)'>" + esc(w.x) + "</span>" : ""));
       $("mShEx").hidden = false;
     } else $("mShEx").hidden = true;
+    var cls = (w.k && w.k.length) ? esc(w.k.join("　·　")) : "";
+    if (cls) { txt("mShColloc", "<b>搭配</b><br>" + cls); $("mShColloc").hidden = false; }
+    else $("mShColloc").hidden = true;
     if (w.s) { txt("mShSrc", esc(w.s)); $("mShSrc").hidden = false; }
     else $("mShSrc").hidden = true;
     if (ctxEn) {
@@ -654,6 +718,10 @@
     $("mShState").hidden = false;
     txt("mShSimple", isSimple(w.w) ? "恢复复习" : "太简单 · 不再复习");
     $("mShCustomBtns").hidden = !w.custom;
+    var editBtns = $("mShEditBtns");
+    if (editBtns) editBtns.hidden = !!w.custom;
+    var revBtn = $("mShRevertCard");
+    if (revBtn) revBtn.hidden = !w.edited;
     $("mMask").hidden = false;
     $("mSheet").hidden = false;
     speak(w.w);
@@ -1558,7 +1626,20 @@
       if (window.__mCurrent === "mine") renderMe();
     };
     $("mShSpeak").onclick = function () { if (sheetWord) speak(sheetWord.w); };
-    $("mShEdit").onclick = function () { if (sheetWord) { closeSheet(); openEditor(sheetWord.w, ""); } };
+    $("mShEdit").onclick = function () { if (sheetWord) { var k = sheetWord.w; closeSheet(); openEditor(k, "", false); } };
+    $("mShEditCard").onclick = function () { if (sheetWord) { var k = sheetWord.w; closeSheet(); openEditor(k, "", true); } };
+    $("mShRevertCard").onclick = function () {
+      if (!sheetWord) return;
+      var k = sheetWord.w;
+      if (!window.confirm("把「" + k + "」还原成官方版本？你的修改会被删除。")) return;
+      if (state.edits) delete state.edits[k];
+      save();
+      revertEdit(k);
+      toast("已还原官方版");
+      closeSheet();
+      if (window.__mCurrent === "grove") renderList();
+      if (window.__mCurrent === "today") renderToday();
+    };
     $("mShDel").onclick = deleteCustom;
 
     $("mEditMask").onclick = closeEditor;
@@ -1773,6 +1854,7 @@
     for (i = 0; i < WORDS.length; i++) IDX[WORDS[i].w.toLowerCase()] = WORDS[i];
     state = readState();
     mergeCustom();
+    applyEdits();
     var saved = "light";
     try { saved = localStorage.getItem("cilin.m.theme") || "light"; } catch (e) { }
     setTheme(saved === "dark" ? "dark" : "light");

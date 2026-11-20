@@ -43,6 +43,8 @@ def slim_word(w):
             d["s"] = ex["src"]
     if w.get("exZh"):
         d["x"] = w["exZh"]
+    if w.get("colloc"):
+        d["k"] = w["colloc"]
     return d
 
 

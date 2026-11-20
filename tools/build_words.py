@@ -14,7 +14,8 @@ WORKSPACE = os.path.dirname(os.path.dirname(ROOT))
 BUILD = os.path.join(ROOT, "build")
 WORD_PDF = os.path.join(WORKSPACE, "四六级", "大学英语四级词汇完整版带音标-顺序版.pdf")
 CET6_PDF = os.path.join(WORKSPACE, "四六级", "大学英语六级词汇完整版带音标-顺序版.pdf")
-HF_PDF = os.path.join(WORKSPACE, "四六级", "四六级翻译必背200个高频词.pdf")
+HF_PDF = os.path.join(WORKSPACE, "四六级", "词汇资料", "四六级翻译必背200个高频词.pdf")
+HF_FALLBACK = os.path.join(BUILD, "hf200.json")
 
 POS_RE = re.compile(r"(?:(?<=^)|(?<=\s))(n|vt|vi|v|adj|adv|ad|prep|conj|pron|num|art|int|aux|abbr)\s*\.", re.I)
 POS_MAP = {"n": "n.", "vt": "vt.", "vi": "vi.", "v": "v.", "adj": "adj.", "adv": "adv.", "ad": "adv.",
@@ -227,6 +228,9 @@ def forms_of(w, senses=None):
 def load_hf200():
     tags = set()
     if not os.path.exists(HF_PDF):
+        # PDF 缺失/挪位时用冻结清单兜底，避免 hf 标记静默丢失
+        if os.path.exists(HF_FALLBACK):
+            return set(json.load(open(HF_FALLBACK, encoding="utf-8")))
         return tags
     r = PdfReader(HF_PDF)
     if r.is_encrypted:
@@ -477,9 +481,17 @@ def main():
         if os.path.exists(p):
             for rec in json.load(open(p, encoding="utf-8")):
                 ex_input[rec["w"]] = rec
+    # 题目指令型文本（选择题/填空题题干）不能当例句：跳过，保留语料库匹配的正常句子。
+    # 需要专门替换的词走 ex_fix.json 通道，那里可自带中文译文。
+    exercise_pat = re.compile(
+        r"complete (each|the) sentence|choose the correct|correct letter|"
+        r"fill in (the|each) blank|match the (following|words)|which of the following|"
+        r"answer the (following|questions)|\bA\s*[-–—/]\s*B\b|A-G below", re.I)
     for w in words:
         if w["core"] and w["w"] in ex_input:
             rec = ex_input[w["w"]]
+            if exercise_pat.search(rec["ex"]):
+                continue
             w["ex"] = {"en": rec["ex"], "src": rec["src"], "textId": rec["textId"], "unit": rec["unit"]}
     # 少数例句含练习指令，采用人工替换版本（含译文）
     fix_path = os.path.join(BUILD, "ex_fix.json")

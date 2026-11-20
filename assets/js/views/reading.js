@@ -137,6 +137,7 @@
   function openCustomForm(raw, context, label, opts) {
     opts = opts || {};
     const editing = opts.edit || null;
+    const overlay = !!opts.overlay; // 大纲词的个人编辑覆盖层
     const preZh = (CILIN.sentZh && CILIN.sentZh[context]) || "";
     const exEn = editing ? ((editing.ex && editing.ex.en) || "") : context;
     const exSrc = editing ? ((editing.ex && editing.ex.src) || "") : ("阅读原句 · " + label);
@@ -146,10 +147,10 @@
     const initial = editing && editing.senses && editing.senses.length
       ? editing.senses.slice()
       : [{ pos: editing ? (editing.pos || "") : "", def: editing ? (editing.zh || "") : "" }];
-    ui.openSheet(`<div class="sheet-head"><div><div class="eyebrow">MY WORD</div><h3>${editing ? "编辑我的词" : "收进我的词林"}</h3></div>
+    ui.openSheet(`<div class="sheet-head"><div><div class="eyebrow">${overlay ? "MY EDITION" : "MY WORD"}</div><h3>${overlay ? "编辑这张词卡" : (editing ? "编辑我的词" : "收进我的词林")}</h3></div>
       <button class="icon-btn" data-close aria-label="关闭">${ui.icon("close", 18)}</button></div>
       <div class="sheet-body">
-        <p class="small muted" style="margin:0 0 14px">${editing ? "改动只影响这个词条；学习记录、影子与今日队列都会保留。" : "从阅读里捡回来的词。至少填「单词」和一义项的含义，课文例句已自动带入原句；下面还可以另写一句自己的例句、补几个同义词（都可选）。"}</p>
+        <p class="small muted" style="margin:0 0 14px">${overlay ? "你的改动只在这台设备上生效，词库原版不会变；随时可还原成官方版本。" : (editing ? "改动只影响这个词条；学习记录、影子与今日队列都会保留。" : "从阅读里捡回来的词。至少填「单词」和一义项的含义，课文例句已自动带入原句；下面还可以另写一句自己的例句、补几个同义词（都可选）。")}</p>
         <div class="field"><label>单词 <span class="faint">*</span>${editing ? '<span class="faint"> · 单词名不可改</span>' : ""}</label>
           <input id="cwW" value="${ui.attr(raw)}" ${editing ? "readonly" : ""} autocomplete="off"></div>
         <div class="field"><label>词性与含义 <span class="faint">*</span><span class="faint"> · 一词多义可加多行</span></label>
@@ -168,6 +169,8 @@
         <div class="divider"></div>
         <div class="field"><label>同义词 <span class="faint">· 可选，多个用逗号分隔</span></label>
           <input id="cwSyn" value="${ui.attr(synText)}" placeholder="例如：transport, transit, conveyance" autocomplete="off"></div>
+        <div class="field"><label>固定搭配 <span class="faint">· 可选，一行一条</span></label>
+          <textarea id="cwColloc" rows="3" placeholder="例如：\naccount for 解释；占（比例）\ntake ... into account 把……考虑在内">${ui.esc((editing && (editing.colloc || []).join("\n")) || "")}</textarea></div>
       </div>
       <div class="sheet-foot"><button class="btn btn-line" data-cancel>取消</button>
         <button class="btn btn-primary" data-save>${editing ? "保存修改" : "收进词林"}</button>
@@ -233,9 +236,34 @@
           zh: (ov.querySelector("#cwOwnExZh").value || "").trim()
         },
         syn: parseSyn((ov.querySelector("#cwSyn").value || "")),
+        colloc: (ov.querySelector("#cwColloc").value || "").split("\n").map(function (x) { return x.trim(); }).filter(Boolean),
         mnemonic: (ov.querySelector("#cwMnemonic").value || "").trim(),
         level: "custom", custom: true
       };
+      if (overlay) {
+        // 大纲词：只存改动字段到覆盖层，再即时叠加到运行时词卡
+        const patch = {
+          senses: list, mean: buildZh(list), ipa: obj.ipa, enDef: obj.enDef,
+          ex: { en: exEn, src: (editing && editing.ex && editing.ex.src) || "我的修改" },
+          exZh: obj.exZh, colloc: obj.colloc, syn: obj.syn, mnemonic: obj.mnemonic
+        };
+        CILIN.store.saveEdit(key, patch);
+        close();
+        // 把新补丁应用到运行时词卡（applyEdits 下次启动会重放，这里即时生效）
+        const live = CILIN.wordMap[key];
+        if (live && live.__orig === undefined) {
+          live.__orig = {};
+          (CILIN.EDIT_FIELDS || []).forEach(function (f) { if (f in live) live.__orig[f] = live[f]; });
+        }
+        if (live) {
+          Object.keys(patch).forEach(function (f) { live[f] = patch[f]; });
+          live.edited = true;
+        }
+        CILIN.reRender();
+        ui.toast("已保存到这张词卡", "只在你的设备上生效，可随时还原");
+        setTimeout(function () { CILIN.views.grove.openWord(live); }, 220);
+        return;
+      }
       CILIN.store.addCustomWord(obj);
       const saved = CILIN.store.state.customWords[key];
       const registered = CILIN.registerCustomWord(saved);
@@ -251,6 +279,12 @@
   function editCustomWord(w) {
     if (!w || !w.custom) return;
     openCustomForm(w.w, (w.ex && w.ex.en) || "", "", { edit: w });
+  }
+
+  // 大纲词的「编辑词卡」：走个人覆盖层，不写入词库
+  function editWordOverlay(w) {
+    if (!w || w.custom) return;
+    openCustomForm(w.w, (w.ex && w.ex.en) || "", "", { edit: w, overlay: true });
   }
 
   function bindTokens(root, t, unit, onWord) {
@@ -472,5 +506,5 @@
   }
 
   CILIN.views = CILIN.views || {};
-  CILIN.views.read = { render: render, openCustomForm: openCustomForm, editCustomWord: editCustomWord, navNext: navNext };
+  CILIN.views.read = { render: render, openCustomForm: openCustomForm, editCustomWord: editCustomWord, editWordOverlay: editWordOverlay, navNext: navNext };
 })();
