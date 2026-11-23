@@ -57,6 +57,7 @@ def slim_unit(u):
             "title": t.get("title", ""),
             "subtitle": t.get("subtitle", ""),
             "paras": t.get("paragraphs", []),
+            "sentences": t.get("sentences", []),
         })
     return {"id": u.get("id", ""), "title": u.get("title", ""),
             "cn": u.get("cn", ""), "texts": texts}

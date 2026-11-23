@@ -32,9 +32,9 @@
       const w = CILIN.resolveWord(raw);
       if (w) {
         const seen = store().isSeen(w.w);
-        out += `<button type="button" class="rd-token ${seen ? "is-learned" : "is-new"}" data-rdw="${ui.attr(w.w)}" data-raw="${ui.attr(raw)}">${ui.esc(raw)}</button>`;
+        out += `<button type="button" class="rd-token ${seen ? "is-learned" : "is-new"}" data-rdw="${ui.attr(w.w)}" data-raw="${ui.attr(raw)}" data-pos="${m.index}">${ui.esc(raw)}</button>`;
       } else {
-        out += `<button type="button" class="rd-token rd-unknown" data-raw="${ui.attr(raw)}">${ui.esc(raw)}</button>`;
+        out += `<button type="button" class="rd-token rd-unknown" data-raw="${ui.attr(raw)}" data-pos="${m.index}">${ui.esc(raw)}</button>`;
       }
       last = re.lastIndex;
     }
@@ -42,7 +42,31 @@
     return out;
   }
 
-  function sentenceOf(paragraph, raw) {
+  /* 取词所在句作为「在文中」context。译文表的键正是 t.sentences 里的完整句，
+     所以优先返回预存完整句（保证 CILIN.sentZh[ctx] 精确命中）；找不到再回退到
+     旧的正则切句。pos = 词在段落中的字符偏移，用于多句同词时消歧。 */
+  function sentenceOf(paragraph, raw, sentences, pos) {
+    const norm = function (t) { return (t || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+    if (sentences && sentences.length) {
+      const pn = norm(paragraph);
+      const rn = norm(raw);
+      // 先在段落里定位各完整句的字符区间，选覆盖 pos 的那句
+      let cursor = 0, best = null, bestStart = -1;
+      for (let i = 0; i < sentences.length; i++) {
+        const sn = norm(sentences[i]);
+        if (!sn || sn.length < 8) continue;
+        const at = pn.indexOf(sn, cursor);
+        if (at < 0) continue;
+        cursor = at + sn.length;
+        // 词必须在这句里（归一化后），否则跳过
+        if (rn && sn.indexOf(rn) < 0) continue;
+        if (typeof pos === "number" && pos >= at && pos <= at + sn.length + 4) {
+          return sentences[i];
+        }
+        if (bestStart < 0) { best = sentences[i]; bestStart = at; }
+      }
+      if (best) return best;
+    }
     const parts = paragraph.match(/[^.!?]+[.!?]*/g) || [paragraph];
     const needle = raw.toLowerCase();
     const hit = parts.find(function (p) { return p.toLowerCase().indexOf(needle) >= 0; });
@@ -84,8 +108,9 @@
       setTimeout(function () { target.classList.remove("rd-nav-focus"); }, 1800);
     }
     const para = target ? target.closest("p") : null;
-    const ctx = para ? sentenceOf(para.getAttribute("data-text") || para.textContent, keys[ni]) : "";
-    const nextNav = { list: keys, idx: ni, label: nav.label };
+    const pos = target ? parseInt(target.getAttribute("data-pos"), 10) : NaN;
+    const ctx = para ? sentenceOf(para.getAttribute("data-text") || para.textContent, keys[ni], nav.sentences, isNaN(pos) ? undefined : pos) : "";
+    const nextNav = { list: keys, idx: ni, label: nav.label, sentences: nav.sentences };
     setTimeout(function () {
       CILIN.views.grove.openWord(w, { context: ctx, sourceLabel: nav.label, nav: nextNav });
     }, 240);
@@ -293,7 +318,8 @@
         e.preventDefault();
         const raw = btn.getAttribute("data-raw") || btn.textContent;
         const para = btn.closest("p");
-        const ctx = para ? sentenceOf(para.getAttribute("data-text") || para.textContent, raw) : "";
+        const pos = parseInt(btn.getAttribute("data-pos"), 10);
+        const ctx = para ? sentenceOf(para.getAttribute("data-text") || para.textContent, raw, t.sentences, isNaN(pos) ? undefined : pos) : "";
         const w = btn.getAttribute("data-rdw");
         if (w && CILIN.wordMap[w]) {
           if (onWord) onWord(w);
@@ -303,7 +329,7 @@
           CILIN.views.grove.openWord(CILIN.wordMap[w], {
             context: ctx,
             sourceLabel: sourceLabel(unit, t),
-            nav: myIdx >= 0 ? { list: seq.map(function (b) { return b.getAttribute("data-rdw"); }), idx: myIdx, label: sourceLabel(unit, t) } : null
+            nav: myIdx >= 0 ? { list: seq.map(function (b) { return b.getAttribute("data-rdw"); }), idx: myIdx, label: sourceLabel(unit, t), sentences: t.sentences } : null
           });
         } else {
           openUnknown(raw, ctx, sourceLabel(unit, t));

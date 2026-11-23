@@ -785,9 +785,27 @@
   }
   function loadMeta(cb) { loadScript("data/meta.js", "CILIN_META", function (ok) { META = window.CILIN_META || null; cb(ok && !!META); }); }
   function loadQuestions(cb) { loadScript("data/questions.js", "CILIN_QUESTIONS", function (ok) { QUESTIONS = window.CILIN_QUESTIONS || null; cb(ok && !!QUESTIONS); }); }
-  function sentenceOf(p, raw) {
-    var parts = p.match(/[^.!?]+[.!?]*/g) || [p], needle = String(raw).toLowerCase(), i;
-    for (i = 0; i < parts.length; i++) if (parts[i].toLowerCase().indexOf(needle) >= 0) return parts[i].trim();
+  function sentenceOf(p, raw, sentences) {
+    // 优先用预存完整句（译文表的键就是它们），避免在缩写/引号处被正则切碎
+    if (sentences && sentences.length) {
+      var norm = function (t) { return String(t || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+      var pn = norm(p), rn = norm(raw), cursor = 0, fallback = null, i, sn, at;
+      for (i = 0; i < sentences.length; i++) {
+        sn = norm(sentences[i]);
+        if (sn.length < 8) continue;
+        at = pn.indexOf(sn, cursor);
+        if (at < 0) continue;
+        cursor = at + sn.length;
+        if (rn && sn.indexOf(rn) < 0) continue;
+        if (!fallback) fallback = sentences[i];
+        // raw 在段落里的位置落在这句区间内，直接返回
+        var rp = norm(p.slice(0, Math.max(0, p.toLowerCase().indexOf(String(raw).toLowerCase()))));
+        if (rp.length >= at && rp.length <= at + sn.length + 4) return sentences[i];
+      }
+      if (fallback) return fallback;
+    }
+    var parts = p.match(/[^.!?]+[.!?]*/g) || [p], needle = String(raw).toLowerCase(), i2;
+    for (i2 = 0; i2 < parts.length; i2++) if (parts[i2].toLowerCase().indexOf(needle) >= 0) return parts[i2].trim();
     return String(p).trim();
   }
   function zhOf(p) {
@@ -1574,14 +1592,17 @@
         var pn = ancestorNode(t, "data-p", "mReadBody");
         var para = pn ? (readParas[Number(pn.getAttribute("data-p"))] || "") : "";
         var raw = t.getAttribute && t.getAttribute("data-w") ? t.getAttribute("data-w") : word;
-        var sent = sentenceOf(para, raw);
+        var ft = findText(readText);
+        var sents = ft ? (ft.text.sentences || []) : [];
+        var sent = sentenceOf(para, raw, sents);
         openSheet(IDX[word.toLowerCase()] || null, sent, zhOf(sent));
         return false;
       }
       if (unknown) {
         var pn2 = ancestorNode(t, "data-p", "mReadBody");
         var para2 = pn2 ? (readParas[Number(pn2.getAttribute("data-p"))] || "") : "";
-        openEditor(unknown, sentenceOf(para2, unknown));
+        var ft2 = findText(readText);
+        openEditor(unknown, sentenceOf(para2, unknown, ft2 ? (ft2.text.sentences || []) : []));
         return false;
       }
       if (code) { readText = code; showZh = false; renderText(code); if (!SENTZH) loadSentZh(function () { renderText(code); }); return false; }

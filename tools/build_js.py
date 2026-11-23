@@ -197,6 +197,9 @@ def main():
     # Organ Donation 精读逐句译文（build/sent_zh_themed_donation.json）
     for k, v in load_json(os.path.join(BUILD, "sent_zh_themed_donation.json"), {}).items():
         sent_zh[k] = v
+    # 课外阅读 11 篇逐句译文（build/x_reading_zh.json，由 tools/build_x_zh.py 生成）
+    for k, v in load_json(os.path.join(BUILD, "x_reading_zh.json"), {}).items():
+        sent_zh[k] = v
     norm_index = {}
     for k, v in sent_zh.items():
         norm_index.setdefault(_sent_norm(k), v)
