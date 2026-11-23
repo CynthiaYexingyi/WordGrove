@@ -191,7 +191,7 @@
     let list = CILIN.words;
     if (scope === "cet4") list = CILIN.cet4Words;
     else if (scope === "cet6") list = CILIN.cet6Words;
-    return list.filter(function (w) { return (w.mean || w.zh) && w.w.length > 1; });
+    return list.filter(function (w) { return w.zh && w.w.length > 1; });
   };
 
   CILIN.scopeLabel = function () {

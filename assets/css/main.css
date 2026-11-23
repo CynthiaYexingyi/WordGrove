@@ -812,3 +812,12 @@ p { margin: 0; }
 /* 方法讲义：长文阅读，层次色整体加深一档（只影响讲义页，不动其他页面） */
 .page-method { --muted: #3d483d; --faint: #4e5a4e; --ink-2: #1c241c; }
 :root[data-theme="dark"] .page-method { --muted: #c2ccc0; --faint: #abb7aa; --ink-2: #f2eee2; }
+
+/* 分义项例句：每个义项一行小标题 + 例句 + 译文 */
+.sense-ex-sec .se-item { padding: 9px 0; border-bottom: 1px dashed var(--line-soft); }
+.sense-ex-sec .se-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.sense-ex-sec .se-item:first-child { padding-top: 0; }
+.sense-ex-sec .se-def { font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+.sense-ex-sec .se-def .pos { color: var(--gold-dim); font-size: 11.5px; margin-right: 5px; }
+.sense-ex-sec .ws-en { font-size: 15px; }
+.sense-ex-sec .audio-btn { vertical-align: middle; margin-left: 4px; }

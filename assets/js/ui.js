@@ -307,6 +307,25 @@
     }).join("");
   };
 
+  // 逐义项自写例句：senses[i].ex={en,zh}，只对有例句的义项分行展示
+  ui.senseExHTML = function (w) {
+    const ss = (w && w.senses) || [];
+    const items = [];
+    ss.forEach(function (s) {
+      if (s.ex && s.ex.en) {
+        items.push(`<div class="se-item">
+          <div class="se-def"><span class="pos">${ui.esc(s.pos || "")}</span>${ui.esc(s.def || "")}</div>
+          <div class="ws-en">${ui.esc(s.ex.en)}
+            <button class="audio-btn" data-speak="${ui.attr(s.ex.en)}" aria-label="朗读例句">${ui.icon("speaker", 13)}</button>
+          </div>
+          ${s.ex.zh ? `<div class="ws-zh">${ui.esc(s.ex.zh)}</div>` : ""}
+        </div>`);
+      }
+    });
+    if (!items.length) return "";
+    return `<div class="word-sec sense-ex-sec"><div class="ws-label">分义项例句 · 自写</div>${items.join("")}</div>`;
+  };
+
   // 课件讲义里的词汇讲解（data/vocab_notes.js），按词库 headword 挂载
   ui.vocabNotesHTML = function (w) {
     const bank = window.CILIN_VOCAB_NOTES || {};

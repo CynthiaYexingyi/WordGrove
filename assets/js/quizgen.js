@@ -10,10 +10,10 @@
     if (w.zh) return w.zh.length > 30 ? w.zh.slice(0, 30) + "…" : w.zh;
     const s = (w.senses && w.senses[0]) || null;
     if (s) return s.pos + " " + s.def.slice(0, 22);
-    return (w.mean || "").slice(0, 22);
+    return "";
   }
   function explainOf(w) {
-    let s = w.zh || w.mean || "";
+    let s = w.zh || "";
     const en = (w.ex && w.ex.en) || "";
     const zh = w.exZh || "";
     if (en || zh) s += "｜例句：" + (en || zh) + (en && zh ? "（" + zh + "）" : "");
@@ -23,14 +23,14 @@
 
   function pickPool(useDue) {
     const all = (CILIN.studyPool ? CILIN.studyPool() : (CILIN.words || [])).filter(function (w) {
-      return (w.mean || w.zh) && w.w.length > 1;
+      return !!w.zh && w.w.length > 1;
     });
     const pool = all.slice();
     if (useDue) {
       const due = CILIN.store.dueWords();
       if (due.length) {
         const dueW = due.map(function (w) { return w.w; });
-        const first = due.filter(function (w) { return w.zh || w.mean; });
+        const first = due.filter(function (w) { return !!w.zh; });
         const rest = pool.filter(function (w) { return dueW.indexOf(w.w) < 0; });
         return { primary: first, pool: pool.concat(rest) };
       }
@@ -101,7 +101,7 @@
       }
       if (kind === "spell") {
         return {
-          kind: kind, word: w.w, prompt: "听发音，拼出单词", sub: w.zh || w.mean || "",
+          kind: kind, word: w.w, prompt: "听发音，拼出单词", sub: w.zh || "",
           answer: w.w, explain: explainOf(w), speak: w.w
         };
       }

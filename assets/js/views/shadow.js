@@ -199,7 +199,7 @@
             <span class="audio-btn" data-speak="${ui.attr(w.w)}" onclick="event.stopPropagation()">${ui.icon("speaker", 16)}</span>
             <div class="sr-meta">
               <span class="sr-w">${ui.esc(w.w)} <em class="small" style="font-family:var(--sans)">${ui.esc(w.ipa || "")}</em></span>
-              <span>${ui.esc(w.zh || w.mean || "")}</span>
+              <span>${ui.esc(w.zh || "")}</span>
               <em>${ui.esc(it.meta.reason || "遗忘")} · ${ui.esc(it.meta.added || "")}</em>
             </div>
             <span class="pill">照见 ${ui.icon("chevron", 12)}</span>

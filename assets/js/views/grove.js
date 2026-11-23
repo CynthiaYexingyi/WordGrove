@@ -19,7 +19,7 @@
         <button class="audio-btn" data-speak="${ui.attr(w.w)}" aria-label="发音" onclick="event.stopPropagation()">${ui.icon("speaker", 15)}</button>
       </div>
       <div class="wr-ipa">${ui.esc(w.ipa || "")}</div>
-      <div class="wr-mean">${ui.esc(w.zh || w.mean || "")}</div>
+      <div class="wr-mean">${ui.esc(w.zh || "")}</div>
       <div class="wr-right"><span class="pill ${st.cls}">${st.label}</span></div>
     </div>`;
   }
@@ -160,6 +160,7 @@
         ${enDef}
         ${ex}
         ${exNote}
+        ${ui.senseExHTML(w)}
         ${ui.ownExHTML(w)}
         ${syn}
         ${colloc}
@@ -307,7 +308,7 @@
       return `<div class="word-row" data-word="${ui.attr(w.w)}">
         <div class="wr-w">${ui.esc(w.w)}<button class="audio-btn" data-speak="${ui.attr(w.w)}" onclick="event.stopPropagation()">${ui.icon("speaker", 15)}</button></div>
         <div class="wr-ipa">${ui.esc(w.ipa || "")}</div>
-        <div class="wr-mean">${ui.esc(w.zh || w.mean || "")}</div>
+        <div class="wr-mean">${ui.esc(w.zh || "")}</div>
         <div class="wr-right">${CILIN.levelBadge(w)}<span class="pill ${st.cls}">${st.label}</span></div>
       </div>`;
     }
@@ -402,7 +403,7 @@
         const levelOK = currentLevel === "cet6" ? w.level === "cet6"
           : currentLevel === "cet4" ? (w.level !== "cet6" && !w.custom)
           : currentLevel === "custom" ? !!w.custom : true;
-        return levelOK && (w.w.indexOf(q) >= 0 || (w.mean && w.mean.indexOf(q) >= 0) || (w.zh && w.zh.indexOf(q) >= 0) || (w.ipa && w.ipa.indexOf(q) >= 0));
+        return levelOK && (w.w.indexOf(q) >= 0 || (w.zh && w.zh.indexOf(q) >= 0) || (w.ipa && w.ipa.indexOf(q) >= 0));
       });
       const show = hits.slice(0, 80);
       body.innerHTML = `<div class="word-tools"><span class="eyebrow">${hits.length} RESULTS</span><span class="small faint">显示前 ${show.length} 条</span></div>

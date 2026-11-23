@@ -11,3 +11,7 @@ DATASCHEMA.md
 # Python 编译缓存
 __pycache__/
 *.pyc
+
+# 临时截图（WPS 同步残留）
+_shot_*.png
+__verify_*.html

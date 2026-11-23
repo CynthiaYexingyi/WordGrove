@@ -59,7 +59,7 @@
   // 一个错词可以同时属于多类：词性 / 词尾 / 形近 / 课文单元
   function clusterTags(w, near) {
     const tags = [];
-    const raw = (w.senses && w.senses[0] && w.senses[0].pos) || w.pos || (w.mean || "").split(" ")[0] || "";
+    const raw = (w.senses && w.senses[0] && w.senses[0].pos) || w.pos || (w.zh || "").split(" ")[0] || "";
     const p = String(raw).toLowerCase();
     if (/^n/.test(p)) tags.push("名词");
     else if (/^v/.test(p)) tags.push("动词");

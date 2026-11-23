@@ -71,6 +71,7 @@
           ${w.enDef ? `<div class="en-def"><span class="en-label">EN</span>${ui.esc(w.enDef)}</div>` : ""}
           ${syn}
       ${ex}
+          ${ui.senseExHTML(w)}
           ${ui.ownExHTML(w)}
           ${colloc ? `<div class="word-sec"><div class="ws-label">搭配</div>${colloc}</div>` : ""}
           ${w.mnemonic ? `<div class="mnemonic">${ui.icon("spark", 13)} ${ui.esc(w.mnemonic)}</div>` : ""}

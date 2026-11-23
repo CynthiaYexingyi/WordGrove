@@ -242,7 +242,7 @@
       const body = list.length
         ? `<div class="word-list">${list.map(function (w) {
             return `<div class="word-row" data-restore="${ui.attr(w.w)}">
-              <div class="wr-w">${ui.esc(w.w)}</div><div class="wr-mean">${ui.esc(w.zh || w.mean || "")}</div>
+              <div class="wr-w">${ui.esc(w.w)}</div><div class="wr-mean">${ui.esc(w.zh || "")}</div>
               <div class="wr-right"><button class="btn btn-line btn-sm" data-restore-btn="${ui.attr(w.w)}">恢复复习</button></div>
             </div>`;
           }).join("")}</div>`
