@@ -375,6 +375,16 @@ p { margin: 0; }
 .colloc-list { display: flex; flex-direction: column; gap: 6px; }
 .colloc-list div { font-family: var(--latin); font-size: 14px; color: var(--ink-2); }
 .colloc-list div span { color: var(--muted); font-family: var(--sans); font-size: 12px; margin-left: 6px; }
+.vn-item { padding: 10px 0; border-bottom: 1px dashed var(--line-soft); }
+.vn-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.vn-item .vn-term { font-family: var(--latin); font-size: 14px; color: var(--ink); font-weight: 600; }
+.vn-item .ws-note { margin-top: 4px; line-height: 1.7; }
+.sn-wrap { margin: -8px 2px 16px; padding: 12px 14px; border-left: 2px solid var(--gold-dim); background: var(--panel-2); border-radius: 0 8px 8px 0; }
+.sn-label { font-size: 10px; letter-spacing: .2em; color: var(--gold-dim); margin-bottom: 8px; }
+.sn-item { padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
+.sn-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.sn-item .sn-loc { font-family: var(--latin); font-size: 11px; color: var(--faint); margin-bottom: 3px; }
+.sn-item .ws-note { margin-top: 4px; line-height: 1.65; }
 
 /* ---------- 训练 ---------- */
 .train-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }

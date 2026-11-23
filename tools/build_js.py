@@ -194,6 +194,9 @@ def main():
         sent_zh[k] = v
     for k, v in load_json(os.path.join(BUILD, "sent_zh_themed.json"), {}).items():
         sent_zh[k] = v
+    # Organ Donation 精读逐句译文（build/sent_zh_themed_donation.json）
+    for k, v in load_json(os.path.join(BUILD, "sent_zh_themed_donation.json"), {}).items():
+        sent_zh[k] = v
     norm_index = {}
     for k, v in sent_zh.items():
         norm_index.setdefault(_sent_norm(k), v)
@@ -236,6 +239,8 @@ def main():
     for key in ["reading", "cloze", "matching", "translation", "writing", "listening"]:
         arr = load_json(os.path.join(BUILD, f"q_{key}.json"), [])
         q[key] = arr
+    # 期末备考增量：U3/U4 仔细阅读（build/reading_u34.json）
+    q["reading"] = q["reading"] + load_json(os.path.join(BUILD, "reading_u34.json"), [])
     nt = load_json(os.path.join(BUILD, "new_training.json"), {})
     if not nt or not any(nt.get(k) for k in ["cloze3", "match15", "translation_u14a", "paraphrase_u14a"]):
         nt = load_json(os.path.join(BUILD, "new_training_manual.json"), {})
@@ -246,6 +251,12 @@ def main():
     # 扩充题集：U1–U7 讲义翻译、高难度翻译、段落写作活动（来源见各题 source 字段）
     for _k in ("translation_u17", "translation_hard", "paragraph_drill"):
         q[_k] = nt.get(_k, [])
+    # 期末备考增量：Part I B 划线词同义替换（build/exam_addon.json）
+    q["synonym_u14"] = load_json(os.path.join(BUILD, "exam_addon.json"), {}).get("synonym_u14", [])
+    # Unit 7 课件复习题：U1–6 选择 / 填空 / 判断（build/unit7_quizzes.json）
+    u7 = load_json(os.path.join(BUILD, "unit7_quizzes.json"), {})
+    for _k in ("review_mcq", "review_cloze", "review_tf"):
+        q[_k] = u7.get(_k, [])
     tb = load_json(os.path.join(BUILD, "textbook_sets.json"), {})
     q["textbook"] = tb.get("sets", [])
     # 语料员提取的真题素材可并入（题库编辑未全写时兜底）
@@ -284,6 +295,8 @@ def main():
 
     # 主题精读（CET 阅读风格）：句子逐字复用词库 ex.en，译文由 sentzh 自动带入
     themed_articles = load_json(os.path.join(BUILD, "articles_themed.json"), [])
+    # Organ Donation 议论文精读（build/articles_donation.json）
+    themed_articles = themed_articles + load_json(os.path.join(BUILD, "articles_donation.json"), [])
     if themed_articles:
         import re
         th = {"id": "x2", "title": "主题精读", "cn": "主题", "extra": True, "texts": []}
@@ -318,6 +331,14 @@ def main():
     s1 = dump("words.js", "CILIN_WORDS", words)
     s2 = dump("units.js", "CILIN_UNITS", units)
     s3 = dump("questions.js", "CILIN_QUESTIONS", q)
+    # 课件词汇讲解（build/vocab_notes.json，由 tools/build_vocab_notes.py 生成）
+    vn = load_json(os.path.join(BUILD, "vocab_notes.json"), {})
+    s4 = dump("vocab_notes.js", "CILIN_VOCAB_NOTES", vn)
+    print(f"vocab_notes {len(vn)} headwords -> data/vocab_notes.js {s4/1024:.0f}KB")
+    # 课件难句精讲（build/sent_notes.json，由 tools/build_sent_notes.py 生成）
+    sn = load_json(os.path.join(BUILD, "sent_notes.json"), [])
+    s5 = dump("sent_notes.js", "CILIN_SENT_NOTES", sn)
+    print(f"sent_notes {len(sn)} sentences -> data/sent_notes.js {s5/1024:.0f}KB")
 
     rich = sum(1 for w in words if w.get("rich"))
     print(f"words {len(words)} (rich {rich}, enDef {sum(1 for w in words if w.get('enDef'))}) -> data/words.js {s1/1024:.0f}KB")

@@ -307,6 +307,43 @@
     }).join("");
   };
 
+  // 课件讲义里的词汇讲解（data/vocab_notes.js），按词库 headword 挂载
+  ui.vocabNotesHTML = function (w) {
+    const bank = window.CILIN_VOCAB_NOTES || {};
+    const list = bank[((w && w.w) || "").toLowerCase()] || [];
+    if (!list.length) return "";
+    const items = list.slice(0, 3).map(function (n) {
+      return `<div class="vn-item">
+        <div class="vn-term">${ui.esc(n.term || "")}</div>
+        ${n.zh ? `<div class="ws-zh">${ui.esc(n.zh)}</div>` : ""}
+        ${n.note ? `<div class="ws-note">${ui.esc(n.note)}</div>` : ""}
+        <div class="ws-src">${ui.icon("book", 12)} ${ui.esc(n.source || "")}</div>
+      </div>`;
+    }).join("");
+    return `<div class="word-sec"><div class="ws-label">讲义讲解 · 来自课件</div>${items}</div>`;
+  };
+
+  // 课件难句精讲（data/sent_notes.js）：挂在词卡例句区的逐句翻译 + 难点拆解
+  ui.sentNotesFor = function (w) {
+    const all = window.CILIN_SENT_NOTES || [];
+    const key = ((w && w.w) || "").toLowerCase();
+    return all.filter(function (n) {
+      return (n.words || []).some(function (x) { return String(x).toLowerCase() === key; });
+    });
+  };
+  ui.sentNotesHTML = function (w) {
+    const list = ui.sentNotesFor(w);
+    if (!list.length) return "";
+    const items = list.slice(0, 2).map(function (n) {
+      return `<div class="sn-item">
+        ${n.loc ? `<div class="sn-loc">${ui.esc(n.loc)}</div>` : ""}
+        ${n.zh ? `<div class="ws-zh">${ui.esc(n.zh)}</div>` : ""}
+        ${n.note ? `<div class="ws-note">${ui.esc(n.note)}</div>` : ""}
+      </div>`;
+    }).join("");
+    return `<div class="sn-wrap"><div class="sn-label">难句精讲 · 来自课件</div>${items}</div>`;
+  };
+
   ui.wordState = function (w) {
     const meta = window.CILIN.store ? window.CILIN.store.stateOf(w.w) : null;
     if (!meta || !meta.seen) return { label: "未见", cls: "ghost" };

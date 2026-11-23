@@ -136,6 +136,7 @@
           <button class="audio-btn" data-speak="${ui.attr(w.ex.en)}" aria-label="朗读例句">${ui.icon("speaker", 14)}</button>
         </div>
       </div>` : `<div class="word-sec"><div class="ws-label">例句</div><div class="ws-zh">词库中暂未匹配到课文例句，可在训练里通过语境遇见它。</div></div>`;
+    const exNote = ui.sentNotesHTML(w);
     const colloc = w.colloc && w.colloc.length ? `<div class="word-sec"><div class="ws-label">搭配</div>
       <div class="colloc-list">${w.colloc.map(function (c) { return `<div>${ui.esc(c)}</div>`; }).join("")}</div></div>` : "";
     ui.openSheet(`<div class="sheet-head">
@@ -158,11 +159,13 @@
         ${context}
         ${enDef}
         ${ex}
+        ${exNote}
         ${ui.ownExHTML(w)}
         ${syn}
         ${colloc}
         ${w.mnemonic ? `<div class="word-sec"><div class="ws-label">记忆技巧</div><div class="ws-note">${ui.esc(w.mnemonic)}</div></div>` : ""}
         ${w.note ? `<div class="word-sec"><div class="ws-label">用法</div><div class="ws-note">${ui.esc(w.note)}</div></div>` : ""}
+        ${ui.vocabNotesHTML(w)}
       </div>
       <div class="sheet-foot">
         ${nav ? `<button class="btn ${hasNext ? "btn-line" : "btn-ghost"}" data-next ${hasNext ? "" : 'disabled style="opacity:.45;cursor:not-allowed"'} title="按文章顺序跳到下一个必学词">${hasNext ? "下一个必学词 " + ui.icon("arrow", 14) : "已是本篇最后一个"}</button>` : ""}

@@ -698,6 +698,24 @@
       txt("mShEx", esc(w.e) + (w.x ? "<br><span style='color:var(--muted)'>" + esc(w.x) + "</span>" : ""));
       $("mShEx").hidden = false;
     } else $("mShEx").hidden = true;
+    // 课件难句精讲：挂在例句下方
+    var snAll = window.CILIN_SENT_NOTES || [], sKey = (w.w || "").toLowerCase(), snList = [];
+    for (var si = 0; si < snAll.length; si++) {
+      var sn = snAll[si], sw = sn.words || [], sk;
+      for (sk = 0; sk < sw.length; sk++) {
+        if (String(sw[sk]).toLowerCase() === sKey) { snList.push(sn); break; }
+      }
+      if (snList.length >= 2) break;
+    }
+    if (snList.length) {
+      var sh = "<b>难句精讲 · 来自课件</b>", sj;
+      for (sj = 0; sj < snList.length; sj++) {
+        if (snList[sj].loc) sh += "<br><span style='color:var(--faint);font-size:11px'>" + esc(snList[sj].loc) + "</span>";
+        if (snList[sj].zh) sh += "<br><span style='color:var(--muted)'>" + esc(snList[sj].zh) + "</span>";
+        if (snList[sj].note) sh += "<br>" + esc(snList[sj].note);
+      }
+      txt("mShSentNotes", sh); $("mShSentNotes").hidden = false;
+    } else $("mShSentNotes").hidden = true;
     var cls = (w.k && w.k.length) ? esc(w.k.join("　·　")) : "";
     if (cls) { txt("mShColloc", "<b>搭配</b><br>" + cls); $("mShColloc").hidden = false; }
     else $("mShColloc").hidden = true;
@@ -708,6 +726,20 @@
         (ctxZh ? "<br><span style='color:var(--muted)'>" + esc(ctxZh) + "</span>" : ""));
       $("mShCtx").hidden = false;
     } else $("mShCtx").hidden = true;
+    // 课件讲义讲解（data/vocab_notes.js）
+    var vbank = window.CILIN_VOCAB_NOTES || {};
+    var vlist = vbank[(w.w || "").toLowerCase()] || [];
+    if (vlist.length) {
+      var vh = "<b>讲义讲解 · 来自课件</b>", vi, vn;
+      for (vi = 0; vi < Math.min(vlist.length, 2); vi++) {
+        vn = vlist[vi];
+        vh += "<br><span style='color:var(--ink);font-weight:600'>" + esc(vn.term || "") + "</span>";
+        if (vn.zh) vh += "<br><span style='color:var(--muted)'>" + esc(vn.zh) + "</span>";
+        if (vn.note) vh += "<br>" + esc(vn.note);
+        vh += "<br><span style='color:var(--faint);font-size:11px'>" + esc(vn.source || "") + "</span>";
+      }
+      txt("mShNotes", vh); $("mShNotes").hidden = false;
+    } else $("mShNotes").hidden = true;
     var s = state.words[w.w];
     var info = [];
     if (s && s.seen) info.push("见过 " + s.seen + " 次 · 第 " + (s.box || 1) + " 阶 · 答对 " + (s.right || 0) + " / 答错 " + (s.wrong || 0));
@@ -852,6 +884,10 @@
     ] },
     { title: "课本同步 · Unit 1–7", items: [
       { id: "cloze3", name: "三选一填空", desc: "课本原句挖空，三选一" },
+      { id: "synonym_u14", name: "同义替换 · 20", desc: "划线词四选一，与期末 Part I B 同型" },
+      { id: "review_mcq", name: "复习选择 · 100", desc: "U1–6 复习四选一，随机抽 10 题" },
+      { id: "review_tf", name: "复习判断 · 100", desc: "U1–6 复习正误判断" },
+      { id: "review_cloze", name: "复习填空 · 100", desc: "U1–6 课文填空自评" },
       { id: "match15", name: "15 词填空", desc: "单元词表匹配 15 个句子" },
       { id: "textbook", name: "课文判断 T/F/NG", desc: "课本练习，判断正误" },
       { id: "translation_u14a", name: "句子翻译", desc: "课件例句汉译英" },
@@ -1025,15 +1061,18 @@
       }
       return qs;
     }
-    if (kind === "cloze3" || kind === "textbook" || kind === "match15") {
+    if (kind === "cloze3" || kind === "textbook" || kind === "match15" || kind === "synonym_u14" || kind === "review_mcq" || kind === "review_tf") {
       var words = set.words || [];
-      var list = kind === "cloze3" ? QUESTIONS.cloze3 : (kind === "match15" ? (set.items || []) : (set.items || []));
-      if (kind === "cloze3") list = shuffle(list, Date.now()).slice(0, 8);
+      var list = kind === "cloze3" ? QUESTIONS.cloze3 : (kind === "synonym_u14" ? QUESTIONS.synonym_u14 : (kind === "review_mcq" ? QUESTIONS.review_mcq : (kind === "review_tf" ? QUESTIONS.review_tf : (kind === "match15" ? (set.items || []) : (set.items || [])))));
+      if (kind === "cloze3" || kind === "synonym_u14" || kind === "review_mcq" || kind === "review_tf") list = shuffle(list, Date.now()).slice(0, 8);
       for (i = 0; i < list.length; i++) {
         it = list[i];
         if (kind === "textbook") {
           opts = ["T 正确", "F 错误", "NG 未提及"];
           ans = String(it.answer || "").toUpperCase().indexOf("NG") === 0 ? 2 : (String(it.answer || "").toUpperCase().indexOf("T") === 0 ? 0 : 1);
+        } else if (kind === "review_tf") {
+          opts = ["T 正确", "F 错误"];
+          ans = String(it.answer || "").toUpperCase().indexOf("T") === 0 ? 0 : 1;
         } else if (kind === "match15") {
           opts = words.slice();
           ans = -1;
@@ -1041,19 +1080,19 @@
         } else { opts = it.options || []; ans = optIndex(it.answer, opts); }
         qs.push({ type: "choice", stem: it.stem || "", sub: src || set.source || "",
           options: opts, answer: ans, explain: it.explain || set.explain || "",
-          eyebrow: (kind === "textbook" ? "课文判断" : kind === "match15" ? "15 词填空" : "三选一") + " · 第 " + (i + 1) + " 题" });
+          eyebrow: (kind === "textbook" ? "课文判断" : kind === "match15" ? "15 词填空" : kind === "synonym_u14" ? "同义替换" : kind === "review_mcq" ? "复习选择" : kind === "review_tf" ? "复习判断" : "三选一") + " · 第 " + (i + 1) + " 题" });
       }
       return qs;
     }
-    if (kind === "translation" || kind === "translation_u14a" || kind === "writing" || kind === "paraphrase_u14a" || kind === "translation_u17" || kind === "translation_hard" || kind === "paragraph_drill") {
+    if (kind === "translation" || kind === "translation_u14a" || kind === "writing" || kind === "paraphrase_u14a" || kind === "translation_u17" || kind === "translation_hard" || kind === "paragraph_drill" || kind === "review_cloze") {
       var arr = QUESTIONS[kind] || [];
       var single = set && (set.zh || set.original || set.topic);
-      var picks = single ? [set] : shuffle(arr, Date.now()).slice(0, kind === "writing" ? 1 : 4);
+      var picks = single ? [set] : shuffle(arr, Date.now()).slice(0, kind === "writing" ? 1 : (kind === "review_cloze" ? 8 : 4));
       for (i = 0; i < picks.length; i++) {
         it = picks[i];
-        var stem = it.zh || it.original || it.topic || "";
+        var stem = it.zh || it.original || it.topic || it.stem || "";
         var sub = (it.title || "") + (it.cn ? " · " + it.cn : "");
-        var ref = it.reference || it.model || "";
+        var ref = it.reference || it.model || it.answer || "";
         var extra = "";
         if (it.keyPhrases && it.keyPhrases.length) extra += "关键词：" + esc(it.keyPhrases.join("、")) + "<br>";
         if (it.tips && it.tips.length) extra += "提示：" + esc(it.tips.join("；")) + "<br>";
@@ -1062,7 +1101,7 @@
         if (it.technique) extra += "改写思路：" + esc(it.technique) + "<br>";
         if (it.phrases && it.phrases.length) extra += "可用表达：" + esc(it.phrases.join("；"));
         qs.push({ type: "text", stem: stem, sub: sub, reference: ref, extra: extra,
-          explain: it.technique || "", eyebrow: kind === "writing" ? "写作 · 自评" : (kind === "paraphrase_u14a" ? "改写 · 自评" : (kind === "paragraph_drill" ? "段落写作 · 自评" : "翻译 · 自评")),
+          explain: it.technique || "", eyebrow: kind === "writing" ? "写作 · 自评" : (kind === "paraphrase_u14a" ? "改写 · 自评" : (kind === "paragraph_drill" ? "段落写作 · 自评" : kind === "review_cloze" ? "复习填空 · 自评" : "翻译 · 自评")),
           stat: kind === "writing" ? "written" : "translated", src: it.source || "" });
       }
       return qs;
@@ -1079,7 +1118,7 @@
       if (!ok) { toast("题库加载失败，检查网络后重试"); return; }
       var sets = QUESTIONS[id] || [];
       if (!sets.length) { toast("这一组暂时没有题"); return; }
-      var direct = { cloze3: 1, translation: 1, translation_u14a: 1, writing: 1, paraphrase_u14a: 1, translation_u17: 1, translation_hard: 1, paragraph_drill: 1 };
+      var direct = { cloze3: 1, synonym_u14: 1, review_mcq: 1, review_tf: 1, review_cloze: 1, translation: 1, translation_u14a: 1, writing: 1, paraphrase_u14a: 1, translation_u17: 1, translation_hard: 1, paragraph_drill: 1 };
       if (direct[id]) {
         openQuiz(buildSet(id, null), { title: trainName(id), kind: id });
         return;
@@ -1121,7 +1160,7 @@
     $("mQuizTitle").innerHTML = esc(quiz.title);
     $("mQuizCount").innerHTML = (quiz.idx + 1) + " / " + quiz.qs.length;
     var h = '<div class="m-q-eyebrow">' + esc(q.eyebrow || "训练") + "</div>";
-    h += '<div class="m-q-stem">' + esc(q.stem || "") + "</div>";
+    h += '<div class="m-q-stem">' + esc(q.stem || "").replace(/«(.+?)»/g, "<u>$1</u>") + "</div>";
     if (q.sub) h += '<div class="m-q-sub">' + esc(q.sub) + "</div>";
     if (q.passage) h += q.passage;
     if (q.extra) h += '<div class="m-q-sub">' + q.extra + "</div>";

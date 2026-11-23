@@ -591,6 +591,107 @@
     };
   }
 
+
+  /* ---------- 通用选择题库（同义替换 / U1–6 复习选择 / 判断） ---------- */
+  const CHOICE_BANKS = {
+    synonym_u14: { eyebrow: "BEST SYNONYM", title: "同义替换 · 划线词", hint: "选出能替换划线部分、且句意不变的选项 · 课本 U1–U4", count: 10 },
+    review_mcq:  { eyebrow: "REVIEW · MCQ", title: "复习选择题 · U1–6", hint: "课件复习题，每题四个选项，选出一个正确答案", count: 10 },
+    review_tf:   { eyebrow: "REVIEW · TRUE / FALSE", title: "复习判断题 · U1–6", hint: "根据课文内容判断正误", count: 10, tf: true }
+  };
+  function startChoiceBank(kind) {
+    const cfg = CHOICE_BANKS[kind];
+    const pool = Q(kind).slice().sort(function () { return Math.random() - 0.5; }).slice(0, cfg.count);
+    if (!pool.length) { ui.toast("这一类还在生长", "换个题型先练"); return; }
+    const chosen = {};
+    const marked = function (s) { return ui.esc(s || "").replace(/«(.+?)»/g, '<u class="syn-u">$1</u>'); };
+    const body = `<div class="q-wrap">
+      <div class="passage-meta"><span class="eyebrow">${cfg.eyebrow}</span><span class="small faint">${cfg.hint}</span></div>
+      ${pool.map(function (it, qi) {
+        return `<div class="q-block" data-q="${qi}">
+          <div class="q-stem" style="font-size:16px">${qi + 1}. ${marked(it.stem)}</div>
+          <div class="q-options">${(cfg.tf ? ["T 正确", "F 错误"] : (it.options || [])).map(function (o, oi) {
+            return `<button class="opt" data-q="${qi}" data-o="${oi}"><span class="opt-key">${(cfg.tf ? "TF" : "ABCD")[oi]}</span><span>${ui.esc(o)}</span></button>`;
+          }).join("")}</div>
+          <div class="fb-slot"></div>
+        </div>`;
+      }).join("")}
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button class="btn btn-primary" data-submit disabled>提交答案</button>
+      </div>
+    </div>`;
+    const ov = sessionShell(cfg.title, body, { count: pool.length + " 题" });
+    ov.querySelectorAll(".opt").forEach(function (btn) {
+      btn.onclick = function () {
+        const qi = Number(btn.getAttribute("data-q")), oi = Number(btn.getAttribute("data-o"));
+        chosen[qi] = oi;
+        ov.querySelectorAll('.opt[data-q="' + qi + '"]').forEach(function (b) { b.classList.toggle("selected", b === btn); });
+        ov.querySelector("[data-submit]").disabled = Object.keys(chosen).length < pool.length;
+      };
+    });
+    ov.querySelector("[data-submit]").onclick = function () {
+      this.disabled = true;
+      let correct = 0; const wrong = [];
+      pool.forEach(function (it, qi) {
+        const answer = cfg.tf ? (String(it.answer).toUpperCase() === "T" ? 0 : 1) : it.answer;
+        const ok = chosen[qi] === answer;
+        if (ok) correct++; else wrong.push(qi + 1);
+        store().recordAnswer(ok, { xp: 2 });
+        ov.querySelectorAll('.opt[data-q="' + qi + '"]').forEach(function (b, oi) {
+          b.disabled = true;
+          if (oi === answer) b.classList.add("correct");
+          else if (oi === chosen[qi]) b.classList.add("wrong");
+          else b.classList.add("dim");
+        });
+        const slot = ov.querySelector('.q-block[data-q="' + qi + '"] .fb-slot');
+        if (slot) slot.innerHTML = `<div class="q-feedback ${ok ? "ok" : "no"}"><b>${ok ? "对" : "应为 " + (cfg.tf ? String(it.answer).toUpperCase() : it.options[it.answer])}</b></div>`;
+      });
+      store().recordSession(kind, correct, pool.length);
+      setTimeout(function () {
+        scoreSheet({ correct: correct, total: pool.length, xp: correct * 2, kindLabel: cfg.title.split(" · ")[0], wrong: wrong.map(function (n) { return "第 " + n + " 题"; }) });
+      }, 600);
+    };
+  }
+  function startSynonym() { startChoiceBank("synonym_u14"); }
+  function startReviewMCQ() { startChoiceBank("review_mcq"); }
+  function startReviewTF() { startChoiceBank("review_tf"); }
+
+  /* ---------- 填空自评题库（U1–6 复习填空） ---------- */
+  function startClozeBank() {
+    const pool = Q("review_cloze").slice().sort(function () { return Math.random() - 0.5; }).slice(0, 10);
+    if (!pool.length) { ui.toast("这一类还在生长", "换个题型先练"); return; }
+    const body = `<div class="q-wrap">
+      <div class="passage-meta"><span class="eyebrow">REVIEW · CLOZE</span><span class="small faint">课件复习填空，先自己填，再对照答案</span></div>
+      ${pool.map(function (it, qi) {
+        return `<div class="q-block" data-q="${qi}">
+          <div class="q-stem" style="font-size:15px">${qi + 1}. ${ui.esc(it.stem || "")}</div>
+          <div class="field mt8"><input class="cloze-in" data-q="${qi}" placeholder="填入单词" autocomplete="off"></div>
+          <div class="fb-slot"></div>
+        </div>`;
+      }).join("")}
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button class="btn btn-primary" data-submit>对照答案</button>
+      </div>
+    </div>`;
+    const ov = sessionShell("复习填空 · U1–6", body, { count: pool.length + " 题" });
+    ov.querySelector("[data-submit]").onclick = function () {
+      this.disabled = true;
+      let correct = 0; const wrong = [];
+      pool.forEach(function (it, qi) {
+        const val = (ov.querySelector('.cloze-in[data-q="' + qi + '"]').value || "").trim().toLowerCase();
+        const ans = String(it.answer || "").trim().toLowerCase();
+        const ok = val === ans;
+        if (ok) correct++; else wrong.push(qi + 1);
+        ov.querySelectorAll(".cloze-in").forEach(function (inp) { inp.disabled = true; });
+        const slot = ov.querySelector('.q-block[data-q="' + qi + '"] .fb-slot');
+        if (slot) slot.innerHTML = `<div class="q-feedback ${ok ? "ok" : "no"}"><b>${ok ? "对" : "答案：" + ui.esc(it.answer)}</b></div>`;
+      });
+      store().recordSession("review_cloze", correct, pool.length);
+      setTimeout(function () {
+        scoreSheet({ correct: correct, total: pool.length, xp: correct * 2, kindLabel: "复习填空", wrong: wrong.map(function (n) { return "第 " + n + " 题"; }) });
+      }, 600);
+    };
+  }
+
   /* ---------- 15 词匹配 ---------- */
   function startMatch15(set) {
     if (!set) return;
@@ -751,6 +852,10 @@
     else if (kind === "writing") startWriting(set);
     else if (kind === "listening") startListening(set);
     else if (kind === "cloze3") startCloze3(set);
+    else if (kind === "synonym_u14") startSynonym();
+    else if (kind === "review_mcq") startReviewMCQ();
+    else if (kind === "review_tf") startReviewTF();
+    else if (kind === "review_cloze") startClozeBank();
     else if (kind === "match15") startMatch15(set);
     else if (kind === "translation_u14a") startTranslation(set);
     else if (kind === "paraphrase_u14a") startParaphrase(set);
@@ -778,7 +883,8 @@
     const counts = {
       reading: Q("reading").length, cloze: Q("cloze").length, matching: Q("matching").length,
       translation: Q("translation").length, writing: Q("writing").length, listening: Q("listening").length,
-      cloze3: Q("cloze3").length, match15: Q("match15").length, translation_u14a: Q("translation_u14a").length,
+      cloze3: Q("cloze3").length, match15: Q("match15").length, synonym_u14: Q("synonym_u14").length,
+      review_mcq: Q("review_mcq").length, review_cloze: Q("review_cloze").length, review_tf: Q("review_tf").length, translation_u14a: Q("translation_u14a").length,
       paraphrase_u14a: Q("paraphrase_u14a").length, textbook: Q("textbook").length,
       translation_u17: Q("translation_u17").length, translation_hard: Q("translation_hard").length,
       paragraph_drill: Q("paragraph_drill").length
@@ -803,6 +909,10 @@
         ${card("listening", "ear", "听力微练", "LISTENING", "用系统语音合成，听对话/短文，再答题。", counts.listening ? counts.listening + " 组" : "", "", !counts.listening)}
         ${card("cloze3", "pen", "三选一填空", "3-CHOICE CLOZE", "一句一空，三个词里选一个；按课文/课件语境出题。", counts.cloze3 ? counts.cloze3 + " 题" : "", "", !counts.cloze3)}
         ${card("match15", "ring", "15 词匹配", "15 WORDS · 15 SENTENCES", "15 个词对应 15 个挖空句，一一匹配。", counts.match15 ? counts.match15 + " 套" : "", "", !counts.match15)}
+        ${card("synonym_u14", "ring", "同义替换", "BEST SYNONYM · 20", "句中划线词的四选一同义替换，与期末 Part I B 同型；课本 U1–U4。", counts.synonym_u14 ? counts.synonym_u14 + " 题" : "", "", !counts.synonym_u14)}
+        ${card("review_mcq", "book", "复习选择题", "REVIEW · 100", "Unit 7 课件复习题：U1–6 四选一，每次随机抽 10 题。", counts.review_mcq ? counts.review_mcq + " 题" : "", "", !counts.review_mcq)}
+        ${card("review_cloze", "pen", "复习填空", "REVIEW · 100", "Unit 7 课件复习题：U1–6 课文填空，先填后对答案。", counts.review_cloze ? counts.review_cloze + " 题" : "", "", !counts.review_cloze)}
+        ${card("review_tf", "leaf", "复习判断", "REVIEW · 100", "Unit 7 课件复习题：U1–6 正误判断，根据课文内容作答。", counts.review_tf ? counts.review_tf + " 题" : "", "", !counts.review_tf)}
         ${card("translation_u14a", "river", "汉译英 · U1–U4", "TEXT A TRANSLATION", "U1–U4 Text A 的句段翻译，先写再看参考。", counts.translation_u14a ? counts.translation_u14a + " 题" : "", "", !counts.translation_u14a)}
         ${card("paraphrase_u14a", "leaf", "Paraphrase", "U1–U4 TEXT A", "换结构、换词，保留原意；以课件 paraphrasing 方法为依据。", counts.paraphrase_u14a ? counts.paraphrase_u14a + " 句" : "", "", !counts.paraphrase_u14a)}
         ${card("textbook", "book", "课本原题", "TEXTBOOK T/F/NG", "教材 Exercise 1 原题，答案据教师 key。", counts.textbook ? counts.textbook + " 套" : "", "", !counts.textbook)}
@@ -816,7 +926,7 @@
           <div class="tc-foot"><span>${store().shadowCount()} 个影子待照见</span><button class="btn btn-line btn-sm" data-go-shadow>去影子</button></div>
         </article>
       </div>
-      <div class="mt24 small faint">题库共 ${counts.reading + counts.cloze + counts.matching + counts.translation + counts.writing + counts.listening + counts.cloze3 + counts.match15 + counts.translation_u14a + counts.paraphrase_u14a + counts.textbook + counts.translation_u17 + counts.translation_hard + counts.paragraph_drill} 组材料；词汇速测由全词表按「旅程 → 词汇范围」实时生成。</div>
+      <div class="mt24 small faint">题库共 ${counts.reading + counts.cloze + counts.matching + counts.translation + counts.writing + counts.listening + counts.cloze3 + counts.match15 + counts.synonym_u14 + counts.review_mcq + counts.review_cloze + counts.review_tf + counts.translation_u14a + counts.paraphrase_u14a + counts.textbook + counts.translation_u17 + counts.translation_hard + counts.paragraph_drill} 组材料；词汇速测由全词表按「旅程 → 词汇范围」实时生成。</div>
     </div>`;
 
     const wl = root.querySelector("[data-writing-list]");
@@ -829,7 +939,11 @@
         const kind = c.getAttribute("data-train");
         if (kind === "vocab") { vocabChooser(); return; }
         if (kind === "cloze3") { startCloze3(); return; }
-        chooseSet(kind, { cloze: "选词填空", reading: "仔细阅读", matching: "长篇匹配", translation: "汉译英", writing: "写作", listening: "听力微练", match15: "15 词匹配", translation_u14a: "汉译英 · U1–U4", paraphrase_u14a: "Paraphrase", textbook: "课本原题", translation_u17: "汉译英 · U1–U7", translation_hard: "进阶汉译英 · 50", paragraph_drill: "段落写作工坊" }[kind], kind.toUpperCase());
+        if (kind === "synonym_u14") { startSynonym(); return; }
+        if (kind === "review_mcq") { startReviewMCQ(); return; }
+        if (kind === "review_cloze") { startClozeBank(); return; }
+        if (kind === "review_tf") { startReviewTF(); return; }
+        chooseSet(kind, { cloze: "选词填空", reading: "仔细阅读", matching: "长篇匹配", translation: "汉译英", writing: "写作", listening: "听力微练", match15: "15 词匹配", synonym_u14: "同义替换", review_mcq: "复习选择题", review_cloze: "复习填空", review_tf: "复习判断", translation_u14a: "汉译英 · U1–U4", paraphrase_u14a: "Paraphrase", textbook: "课本原题", translation_u17: "汉译英 · U1–U7", translation_hard: "进阶汉译英 · 50", paragraph_drill: "段落写作工坊" }[kind], kind.toUpperCase());
       };
     });
     const gs = root.querySelector("[data-go-shadow]");
@@ -837,5 +951,5 @@
   }
 
   CILIN.views = CILIN.views || {};
-  CILIN.views.train = { render: render, startVocab: startVocab, writingList: writingList, _start: { reading: startReading, cloze: startCloze, matching: startMatching, translation: startTranslation, writing: startWriting, listening: startListening, cloze3: startCloze3, match15: startMatch15, translation_u14a: startTranslation, paraphrase_u14a: startParaphrase, textbook: startTextbook, translation_u17: startTranslation, translation_hard: startTranslation, paragraph_drill: startParaphrase } };
+  CILIN.views.train = { render: render, startVocab: startVocab, writingList: writingList, _start: { reading: startReading, cloze: startCloze, matching: startMatching, translation: startTranslation, writing: startWriting, listening: startListening, cloze3: startCloze3, match15: startMatch15, synonym_u14: startSynonym, review_mcq: startReviewMCQ, review_cloze: startClozeBank, review_tf: startReviewTF, translation_u14a: startTranslation, paraphrase_u14a: startParaphrase, textbook: startTextbook, translation_u17: startTranslation, translation_hard: startTranslation, paragraph_drill: startParaphrase } };
 })();
