@@ -563,7 +563,7 @@
     const tabs = GUIDE.map(function (g) {
       return `<button class="pill" data-m-tab="${g.id}" style="cursor:pointer">${ESC(g.tab)}</button>`;
     }).join(" ");
-    root.innerHTML = `<div class="page">
+    root.innerHTML = `<div class="page page-method">
       <div class="page-head">
         <div>
           <div class="eyebrow">METHOD · 方法讲义</div>

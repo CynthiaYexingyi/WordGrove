@@ -112,6 +112,9 @@ html[data-m-theme="dark"] .m-tab.on i{color:#111a16}
 .m-method .blk>h3{font-size:11px;letter-spacing:.14em;color:var(--gold);margin:0 0 8px}
 .m-method .small{font-size:13px;line-height:1.85;color:var(--ink2)}
 .m-method .muted{color:var(--muted)}
+/* 讲义正文加深一档，浅/深主题分别覆盖，不影响其他页面 */
+.m-method{--muted:#3d483d;--ink2:#1c241c}
+html[data-m-theme="dark"] .m-method{--muted:#c2ccc0;--ink2:#f2eee2}
 .m-method .kv>div{display:flex;gap:10px;border-bottom:1px solid var(--line);padding:7px 0;font-size:13px;line-height:1.7}
 .m-method .kv .k{flex:0 0 34%;color:var(--ink);font-weight:600}
 .m-method .kv .v{flex:1;color:var(--muted)}

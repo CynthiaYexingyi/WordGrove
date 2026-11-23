@@ -808,3 +808,7 @@ p { margin: 0; }
 .mem-bar { height: 6px; border-radius: 6px; background: var(--line-soft); overflow: hidden; }
 .mem-bar i { display: block; height: 100%; background: var(--moss); }
 @media (max-width: 620px) { .mem-row { grid-template-columns: 90px 1fr; } .mem-row > span { grid-column: 1 / -1; } }
+
+/* 方法讲义：长文阅读，层次色整体加深一档（只影响讲义页，不动其他页面） */
+.page-method { --muted: #3d483d; --faint: #4e5a4e; --ink-2: #1c241c; }
+:root[data-theme="dark"] .page-method { --muted: #c2ccc0; --faint: #abb7aa; --ink-2: #f2eee2; }
